@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { patients } from "./data/patients";
 import { allDrugs } from "./data/allDrugs";
 import { drugCoverage } from "./data/drugCoverage";
-import { PatientProvider, usePatient } from "./context/PatientContext";
 import PatientSidebar from "./components/PatientSidebar";
 import PatientChart from "./components/PatientChart";
 import TherapyModal from "./components/TherapyModal";
 
-function AppContent() {
-  const { selectedPatient } = usePatient();
+export default function App() {
+  // Patient state
+  const [patientSearch, setPatientSearch] = useState("");
+  const [showPatientLookup, setShowPatientLookup] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
   
   // Tab state
   const [activeTab, setActiveTab] = useState("Summary");
@@ -19,36 +23,35 @@ function AppContent() {
   const [therapySubmitted, setTherapySubmitted] = useState(false);
   const [selectedDose, setSelectedDose] = useState("");
   
-  // PA form state - grouped related fields
+  // PA form state
   const [paFormOpen, setPaFormOpen] = useState(false);
   const [paFormSubmitted, setPaFormSubmitted] = useState(false);
-  const [paFormData, setPaFormData] = useState({
-    paReason: "",
-    therapyDuration: "",
-    weightLoss: "",
-    weightMaintained: "",
-    weightProgram: "",
-    bmi: "",
-    comorbidities: [],
-    pediatricPercentile: "",
-    maintenanceDose: "",
-    bmiReduction: "",
-    docUpload: ""
-  });
-  
-  // Update BMI when patient changes
-  useEffect(() => {
-    if (selectedPatient?.vitals?.bmi) {
-      setPaFormData(prev => ({ ...prev, bmi: selectedPatient.vitals.bmi.toString() }));
-    }
-  }, [selectedPatient]);
+  const [paReason, setPaReason] = useState("");
+  const [therapyDuration, setTherapyDuration] = useState("");
+  const [weightLoss, setWeightLoss] = useState("");
+  const [weightMaintained, setWeightMaintained] = useState("");
+  const [weightProgram, setWeightProgram] = useState("");
+  const [bmi, setBmi] = useState(selectedPatient?.bmi || "");
+  const [comorbidities, setComorbidities] = useState([]);
+  const [pediatricPercentile, setPediatricPercentile] = useState("");
+  const [maintenanceDose, setMaintenanceDose] = useState("");
+  const [bmiReduction, setBmiReduction] = useState("");
+  const [docUpload, setDocUpload] = useState("");
   
   const tabNames = ["Summary", "Medications", "Results"];
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-row">
       {/* Sidebar */}
-      <PatientSidebar />
+      <PatientSidebar
+        patient={selectedPatient}
+        patients={patients}
+        patientSearch={patientSearch}
+        setPatientSearch={setPatientSearch}
+        selectedPatientId={selectedPatientId}
+        setSelectedPatientId={setSelectedPatientId}
+        setShowPatientLookup={setShowPatientLookup}
+      />
       
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center py-8">
@@ -148,6 +151,7 @@ function AppContent() {
           <TherapyModal
             therapyModalOpen={therapyModalOpen}
             setTherapyModalOpen={setTherapyModalOpen}
+            patient={selectedPatient}
             allDrugs={allDrugs}
             drugCoverage={drugCoverage}
             drugSearch={drugSearch}
@@ -162,24 +166,26 @@ function AppContent() {
             setPaFormOpen={setPaFormOpen}
             paFormSubmitted={paFormSubmitted}
             setPaFormSubmitted={setPaFormSubmitted}
-            paFormData={paFormData}
-            setPaFormData={setPaFormData}
+            therapyDuration={therapyDuration}
+            setTherapyDuration={setTherapyDuration}
+            weightLoss={weightLoss}
+            setWeightLoss={setWeightLoss}
+            weightMaintained={weightMaintained}
+            setWeightMaintained={setWeightMaintained}
+            weightProgram={weightProgram}
+            setWeightProgram={setWeightProgram}
+            bmi={bmi}
+            setBmi={setBmi}
+            comorbidities={comorbidities}
+            setComorbidities={setComorbidities}
+            pediatricPercentile={pediatricPercentile}
+            setPediatricPercentile={setPediatricPercentile}
+            docUpload={docUpload}
+            setDocUpload={setDocUpload}
+            setPaReason={setPaReason}
           />
         </div>
       </main>
-      
-      {/* Logo Watermark - Bottom Right */}
-      <div className="fixed bottom-4 right-4 pointer-events-none">
-        <img src="/omaxef-logo.png" alt="Omaxef" className="h-16" />
-      </div>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <PatientProvider>
-      <AppContent />
-    </PatientProvider>
   );
 }

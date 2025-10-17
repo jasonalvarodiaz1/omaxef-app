@@ -167,11 +167,6 @@ function AppContent() {
           />
         </div>
       </main>
-      
-      {/* Logo Watermark - Bottom Right */}
-      <div className="fixed bottom-4 right-4 pointer-events-none">
-        <img src="/omaxef-logo.png" alt="Omaxef" className="h-16" />
-      </div>
     </div>
   );
 }
