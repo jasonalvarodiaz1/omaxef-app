@@ -1,167 +1,220 @@
-import React from "react";
-import { getCoverageForDrug, evaluatePACriteriaDetailed, statusIcon, getApplicableCriteria, getApprovalLikelihood } from "../utils/coverageLogic";
-import { getSimpleStatus } from "../utils/criteriaEvaluator";
+// CoverageDisplay.js - Real-time coverage evaluation display
+import React, { useState, useEffect } from 'react';
+import { evaluateCoverage, getAvailableMedications } from '../utils/coverageEvaluator';
+import './CoverageDisplay.css';
 
-export default function CoverageDisplay({ 
-  insurance, 
-  drugName, 
-  selectedDose, 
-  selectedPatient,
-  drugCoverage 
-}) {
-  if (!selectedDose) return null;
-  const coverage = getCoverageForDrug(drugCoverage, insurance, drugName);
-  if (!coverage) return <div>No coverage info found.</div>;
+const CoverageDisplay = ({ patientData }) => {
+  const [selectedMedication, setSelectedMedication] = useState(null);
+  const [selectedDose, setSelectedDose] = useState(null);
+  const [evaluationResults, setEvaluationResults] = useState(null);
+  const [medications] = useState(getAvailableMedications());
 
-  const patient = selectedPatient;
-  const applicableCriteria = getApplicableCriteria(coverage, selectedDose, patient, drugName);
+  useEffect(() => {
+    // Auto-evaluate when medication or dose changes
+    if (selectedMedication && patientData) {
+      const results = evaluateCoverage(patientData, selectedMedication, selectedDose);
+      setEvaluationResults(results);
+    }
+  }, [selectedMedication, selectedDose, patientData]);
 
-  // Calculate approval likelihood
-  const criteriaResults = applicableCriteria.map(crit => 
-    evaluatePACriteriaDetailed(patient, coverage, selectedDose, crit, drugName)
-  );
-  const approvalLikelihood = getApprovalLikelihood(criteriaResults);
+  const handleMedicationSelect = (medId) => {
+    setSelectedMedication(medId);
+    setSelectedDose(null); // Reset dose when medication changes
+  };
+
+  const handleDoseSelect = (dose) => {
+    setSelectedDose(dose);
+  };
+
+  if (!patientData) {
+    return (
+      <div className="coverage-display">
+        <div className="no-data-message">
+          <h2>Coverage Evaluation</h2>
+          <p>Load patient data to evaluate medication coverage</p>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedMed = medications.find(m => m.id === selectedMedication);
 
   return (
-    <div>
-      <div>
-        <strong>Tier:</strong> {coverage.tier}
-        <br />
-        <strong>Copay:</strong> {coverage.copay}
-        <br />
-        <strong>Prior Auth Required:</strong> {coverage.paRequired ? "Yes" : "No"}
-        <br />
-        <strong>Step Therapy:</strong> {coverage.stepTherapy ? "Yes" : "No"}
-        <br />
-        <strong>Preferred:</strong> <span className={coverage.preferred ? "text-green-700 font-bold" : "text-red-700 font-bold"}>{coverage.preferred ? "Yes" : "No"}</span>
-        
-        {coverage.paRequired && (
-          <div className="mt-2 text-sm text-gray-700">
-            <strong>Cost Impact:</strong>
-            <div>With PA approval: {coverage.copay}</div>
-            <div>Without PA: ~$1,200/month</div>
-          </div>
-        )}
+    <div className="coverage-display">
+      <div className="coverage-header">
+        <h2>Weight-Loss Medication Coverage</h2>
+        <p className="subtitle">Real-time prior authorization evaluation</p>
       </div>
-      {applicableCriteria && applicableCriteria.length > 0 && (
-        <>
-          <div className="mt-2 font-bold text-green-700">Preferred weight loss agent, PA required</div>
-          <div className="mt-2 font-bold">PA Criteria:</div>
-          <ul className="list-disc ml-6">
-            {applicableCriteria
-              .filter(crit => crit.type !== "weightProgram" && crit.type !== "documentation")
-              .map((crit, i) => {
-                const result = evaluatePACriteriaDetailed(patient, coverage, selectedDose, crit, drugName);
-                const status = getSimpleStatus(result);
-                return (
-                  <li key={i} className="flex flex-col mb-2">
-                    <div className="flex items-start">
-                      <span className="flex-shrink-0">{statusIcon(status, crit.rule)}</span>
-                      <div className="flex-1">
-                        <span>{crit.rule}</span>
-                        {result.displayValue && result.displayValue !== 'N/A' && (
-                          <div className="text-sm text-gray-600 ml-0 mt-1">
-                            <span className="font-semibold">Value: </span>{result.displayValue}
-                            {result.requirement && (
-                              <span> (Required: {result.requirement})</span>
-                            )}
-                          </div>
-                        )}
-                        {result.reason && status !== 'yes' && (
-                          <div className={`text-sm ml-0 mt-1 ${status === 'no' ? 'text-red-600' : 'text-orange-600'}`}>
-                            {result.reason}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-          </ul>
-          {/* Show coverage denial message if any criterion is a red X */}
-          {(() => {
-            const visibleCriteria = applicableCriteria.filter(crit => crit.type !== "weightProgram" && crit.type !== "documentation");
-            const hasRedX = visibleCriteria.some(crit => {
-              const result = evaluatePACriteriaDetailed(patient, coverage, selectedDose, crit, drugName);
-              return getSimpleStatus(result) === "no";
-            });
-            return hasRedX ? (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 rounded text-red-800 font-bold">
-                Drug will not be covered: patient does not meet all PA criteria.
-              </div>
-            ) : null;
-          })()}
-          
-          {/* Approval Likelihood Indicator */}
-          <div className="mt-4 p-4 rounded-lg border-2" style={{
-            backgroundColor: approvalLikelihood.color === 'green' ? '#dcfce7' :
-                            approvalLikelihood.color === 'yellow' ? '#fef9c3' :
-                            approvalLikelihood.color === 'orange' ? '#fed7aa' :
-                            approvalLikelihood.color === 'red' ? '#fee2e2' : '#f3f4f6',
-            borderColor: approvalLikelihood.color === 'green' ? '#16a34a' :
-                         approvalLikelihood.color === 'yellow' ? '#ca8a04' :
-                         approvalLikelihood.color === 'orange' ? '#ea580c' :
-                         approvalLikelihood.color === 'red' ? '#dc2626' : '#9ca3af'
-          }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-lg">PA Approval Likelihood</span>
-              <span className="text-2xl font-bold" style={{
-                color: approvalLikelihood.color === 'green' ? '#15803d' :
-                       approvalLikelihood.color === 'yellow' ? '#a16207' :
-                       approvalLikelihood.color === 'orange' ? '#c2410c' :
-                       approvalLikelihood.color === 'red' ? '#991b1b' : '#6b7280'
-              }}>
-                {approvalLikelihood.likelihood}%
-              </span>
+
+      {/* Medication Selection */}
+      <section className="medication-selection">
+        <h3>Select Medication</h3>
+        <div className="medication-grid">
+          {medications.map(med => (
+            <button
+              key={med.id}
+              className={`medication-card ${selectedMedication === med.id ? 'selected' : ''}`}
+              onClick={() => handleMedicationSelect(med.id)}
+            >
+              <div className="med-brand">{med.brandName}</div>
+              <div className="med-generic">{med.genericName}</div>
+              {med.indication && (
+                <div className="med-indication">{med.indication}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Dose Selection */}
+      {selectedMed && (
+        <section className="dose-selection">
+          <h3>Select Dose</h3>
+          <div className="dose-buttons">
+            {selectedMed.dosages.map(dose => (
+              <button
+                key={dose}
+                className={`dose-button ${selectedDose === dose ? 'selected' : ''}`}
+                onClick={() => handleDoseSelect(dose)}
+              >
+                {dose}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Evaluation Results */}
+      {evaluationResults && (
+        <div className="evaluation-results">
+          {/* Coverage Status Banner */}
+          <div 
+            className="coverage-status-banner"
+            style={{ 
+              background: `linear-gradient(135deg, ${evaluationResults.coverageStatus.color}15, ${evaluationResults.coverageStatus.color}05)`,
+              borderLeft: `4px solid ${evaluationResults.coverageStatus.color}`
+            }}
+          >
+            <div className="status-icon" style={{ color: evaluationResults.coverageStatus.color }}>
+              {evaluationResults.coverageStatus.icon}
             </div>
-            <div className="text-sm mb-2">
-              <span className="font-semibold">Confidence: </span>
-              <span className="capitalize">{approvalLikelihood.confidence}</span>
+            <div className="status-content">
+              <div className="status-level">{evaluationResults.coverageStatus.level.toUpperCase()}</div>
+              <div className="status-message">{evaluationResults.coverageStatus.message}</div>
+              <div className="status-summary">{evaluationResults.summary}</div>
             </div>
-            <div className="text-sm mb-2">
-              <span className="font-semibold">Reason: </span>
-              {approvalLikelihood.reason}
-            </div>
-            <div className="text-sm font-semibold mt-3 p-2 rounded" style={{
-              backgroundColor: approvalLikelihood.color === 'green' ? '#bbf7d0' :
-                              approvalLikelihood.color === 'yellow' ? '#fef08a' :
-                              approvalLikelihood.color === 'orange' ? '#fdba74' :
-                              approvalLikelihood.color === 'red' ? '#fecaca' : '#e5e7eb'
-            }}>
-              ➜ {approvalLikelihood.action}
+            <div className="likelihood-badge" style={{ background: evaluationResults.coverageStatus.color }}>
+              {evaluationResults.likelihood}%
             </div>
           </div>
 
-          {/* Alternative Drug Recommendations */}
-          {approvalLikelihood.likelihood < 50 && (
-            <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-300 rounded">
-              <div className="font-bold text-blue-900 mb-2">💡 Consider These Alternatives:</div>
-              <ul className="space-y-2">
-                <li className="flex justify-between items-center p-2 bg-white rounded">
-                  <div>
-                    <span className="font-semibold">Saxenda</span>
-                    <div className="text-sm text-gray-600">No PA required</div>
+          {/* Criteria Breakdown */}
+          <section className="criteria-section">
+            <h3>Criteria Evaluation</h3>
+            <div className="criteria-list">
+              {evaluationResults.criteriaResults.criteriaList.map((criterion, idx) => (
+                <div key={idx} className={`criterion-item status-${criterion.status}`}>
+                  <div className="criterion-header">
+                    <span className="criterion-icon">
+                      {criterion.status === 'pass' && '✓'}
+                      {criterion.status === 'warning' && '⚠'}
+                      {criterion.status === 'fail' && '✗'}
+                    </span>
+                    <span className="criterion-name">{criterion.name}</span>
+                    <span className={`criterion-badge badge-${criterion.status}`}>
+                      {criterion.status}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-green-700 font-bold">$50 copay</div>
-                    <div className="text-xs text-gray-500">Available today</div>
-                  </div>
-                </li>
-                <li className="flex justify-between items-center p-2 bg-white rounded">
-                  <div>
-                    <span className="font-semibold">Contrave</span>
-                    <div className="text-sm text-gray-600">No PA required</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-green-700 font-bold">$30 copay</div>
-                    <div className="text-xs text-gray-500">Available today</div>
-                  </div>
-                </li>
-              </ul>
+                  <div className="criterion-reason">{criterion.reason}</div>
+                  {criterion.value !== undefined && (
+                    <div className="criterion-value">
+                      Value: {typeof criterion.value === 'number' ? criterion.value.toFixed(1) : criterion.value}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
-        </>
+          </section>
+
+          {/* Recommendations */}
+          <section className="recommendations-section">
+            <h3>Recommendations</h3>
+            <div className="recommendations-list">
+              {evaluationResults.recommendations.map((rec, idx) => (
+                <div key={idx} className={`recommendation-item priority-${rec.priority}`}>
+                  <div className="rec-header">
+                    <span className={`priority-badge priority-${rec.priority}`}>
+                      {rec.priority}
+                    </span>
+                    <span className="rec-category">{rec.category}</span>
+                  </div>
+                  <div className="rec-message">{rec.message}</div>
+                  <div className="rec-action">
+                    <strong>Action:</strong> {rec.action}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Next Steps */}
+          <section className="next-steps-section">
+            <h3>Next Steps</h3>
+            <div className="next-steps-content">
+              {evaluationResults.coverageStatus.level === 'approved' ? (
+                <div className="step-item">
+                  <div className="step-number">1</div>
+                  <div className="step-text">
+                    Submit prescription. Prior authorization should be approved quickly based on patient meeting all criteria.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="step-item">
+                    <div className="step-number">1</div>
+                    <div className="step-text">
+                      Address any failed or warning criteria listed above
+                    </div>
+                  </div>
+                  <div className="step-item">
+                    <div className="step-number">2</div>
+                    <div className="step-text">
+                      Gather required documentation (BMI records, treatment history, lifestyle modifications)
+                    </div>
+                  </div>
+                  <div className="step-item">
+                    <div className="step-number">3</div>
+                    <div className="step-text">
+                      Submit prior authorization request with complete supporting documentation
+                    </div>
+                  </div>
+                  <div className="step-item">
+                    <div className="step-number">4</div>
+                    <div className="step-text">
+                      Consider calling insurance plan to verify specific requirements
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* Action Buttons */}
+          <div className="action-buttons">
+            <button className="btn btn-primary">
+              Submit Prescription
+            </button>
+            <button className="btn btn-secondary">
+              Generate PA Letter
+            </button>
+            <button className="btn btn-secondary">
+              Print Summary
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
-}
+};
+
+export default CoverageDisplay;

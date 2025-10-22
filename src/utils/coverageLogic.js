@@ -1,10 +1,9 @@
 // Coverage lookup and PA criteria evaluation logic
-import drugCoverageData from '../data/drugCoverage';
 import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
 
-export function getCoverageForDrug(drugCoverage, insurance, drugName) {
-  if (!drugCoverage[insurance] || !drugCoverage[insurance][drugName]) return null;
-  return drugCoverage[insurance][drugName];
+export function getCoverageForDrug(insurance, drugName) {
+  if (!insurance || !insurance[drugName]) return null;
+  return insurance[drugName];
 }
 
 export function getApplicableCriteria(drug, dose, patient, drugName) {

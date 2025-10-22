@@ -1,3 +1,4 @@
+/* App.css */
 * {
   margin: 0;
   padding: 0;
@@ -5,7 +6,131 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.app-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: #f8d7da;
+  border-bottom: 2px solid #f5c2c7;
+  color: #842029;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-content strong {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.error-description {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.error-dismiss {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #842029;
+  cursor: pointer;
+  padding: 0 0.5rem;
+  line-height: 1;
+}
+
+.error-dismiss:hover {
+  opacity: 0.7;
+}
+
+.app-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Loading Screen */
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.loading-content {
+  text-align: center;
+  color: white;
+  padding: 2rem;
+}
+
+.spinner-large {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 2rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-content h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+}
+
+.loading-content p {
+  opacity: 0.9;
+  font-size: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .patient-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 40vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-error-banner {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .error-dismiss {
+    align-self: flex-end;
+  }
 }

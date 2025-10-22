@@ -9,12 +9,17 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
+    "crypto-browserify": "^3.12.1",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "fhirclient": "^2.6.3",
     "lucide-react": "^0.545.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4",
     "react-scripts": "5.0.1",
+    "stream-browserify": "^3.0.0",
+    "vm-browserify": "^1.1.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

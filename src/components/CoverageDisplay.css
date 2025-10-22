@@ -1,0 +1,511 @@
+/* CoverageDisplay.css */
+.coverage-display {
+  flex: 1;
+  padding: 2rem;
+  background: #ffffff;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.coverage-header {
+  margin-bottom: 2rem;
+}
+
+.coverage-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: #212529;
+}
+
+.subtitle {
+  margin: 0;
+  color: #6c757d;
+  font-size: 1rem;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #6c757d;
+}
+
+.no-data-message h2 {
+  margin-bottom: 1rem;
+  color: #495057;
+}
+
+/* Medication Selection */
+.medication-selection {
+  margin-bottom: 2rem;
+}
+
+.medication-selection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #495057;
+}
+
+.medication-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.medication-card {
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.medication-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+}
+
+.medication-card.selected {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.25);
+}
+
+.med-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #212529;
+  margin-bottom: 0.25rem;
+}
+
+.med-generic {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.med-indication {
+  font-size: 0.75rem;
+  color: #0d6efd;
+  font-style: italic;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+/* Dose Selection */
+.dose-selection {
+  margin-bottom: 2rem;
+}
+
+.dose-selection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #495057;
+}
+
+.dose-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dose-button {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dose-button:hover {
+  border-color: #0d6efd;
+  background: #f8f9fa;
+}
+
+.dose-button.selected {
+  border-color: #0d6efd;
+  background: #0d6efd;
+  color: white;
+}
+
+/* Evaluation Results */
+.evaluation-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Coverage Status Banner */
+.coverage-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-level {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  opacity: 0.8;
+}
+
+.status-message {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 0.5rem;
+}
+
+.status-summary {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.likelihood-badge {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  min-width: 80px;
+}
+
+/* Criteria Section */
+.criteria-section {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.criteria-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #495057;
+}
+
+.criteria-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.criterion-item {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid;
+}
+
+.criterion-item.status-pass {
+  border-left-color: #28a745;
+}
+
+.criterion-item.status-warning {
+  border-left-color: #ffc107;
+}
+
+.criterion-item.status-fail {
+  border-left-color: #dc3545;
+}
+
+.criterion-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.criterion-icon {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.status-pass .criterion-icon {
+  color: #28a745;
+}
+
+.status-warning .criterion-icon {
+  color: #ffc107;
+}
+
+.status-fail .criterion-icon {
+  color: #dc3545;
+}
+
+.criterion-name {
+  flex: 1;
+  font-weight: 600;
+  color: #212529;
+}
+
+.criterion-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-pass {
+  background: #d1f4e0;
+  color: #0f5132;
+}
+
+.badge-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge-fail {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.criterion-reason {
+  font-size: 0.875rem;
+  color: #495057;
+  margin-bottom: 0.25rem;
+  line-height: 1.5;
+}
+
+.criterion-value {
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-family: 'Courier New', monospace;
+}
+
+/* Recommendations Section */
+.recommendations-section {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.recommendations-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #495057;
+}
+
+.recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.recommendation-item {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid;
+}
+
+.recommendation-item.priority-high {
+  border-left-color: #dc3545;
+}
+
+.recommendation-item.priority-medium {
+  border-left-color: #ffc107;
+}
+
+.recommendation-item.priority-low {
+  border-left-color: #0dcaf0;
+}
+
+.rec-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.priority-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-badge.priority-high {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.priority-badge.priority-medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.priority-badge.priority-low {
+  background: #cff4fc;
+  color: #055160;
+}
+
+.rec-category {
+  font-weight: 600;
+  color: #495057;
+}
+
+.rec-message {
+  font-size: 0.875rem;
+  color: #212529;
+  margin-bottom: 0.5rem;
+}
+
+.rec-action {
+  font-size: 0.875rem;
+  color: #495057;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.rec-action strong {
+  color: #212529;
+}
+
+/* Next Steps Section */
+.next-steps-section {
+  background: #e7f1ff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 2px solid #0d6efd;
+}
+
+.next-steps-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #0a58ca;
+}
+
+.next-steps-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.step-item {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.step-number {
+  background: #0d6efd;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-text {
+  flex: 1;
+  padding-top: 0.25rem;
+  color: #212529;
+  line-height: 1.5;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 2px solid #e9ecef;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #0d6efd;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0b5ed7;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5c636a;
+}
+
+/* Scrollbar */
+.coverage-display::-webkit-scrollbar {
+  width: 8px;
+}
+
+.coverage-display::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+
+.coverage-display::-webkit-scrollbar-thumb {
+  background: #adb5bd;
+  border-radius: 4px;
+}
+
+.coverage-display::-webkit-scrollbar-thumb:hover {
+  background: #6c757d;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .coverage-display {
+    padding: 1rem;
+  }
+
+  .medication-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coverage-status-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .status-message {
+    font-size: 1.25rem;
+  }
+
+  .likelihood-badge {
+    font-size: 1.25rem;
+    padding: 0.75rem 1rem;
+  }
+}

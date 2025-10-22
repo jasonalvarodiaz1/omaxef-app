@@ -441,3 +441,38 @@ export const calculateApprovalLikelihood = (criteriaResults) => {
     action: 'Do not submit - patient does not meet eligibility requirements'
   };
 };
+
+// Placeholder implementation for evaluating patient criteria
+// Replace with actual logic as needed
+export const evaluatePatientCriteria = (patientData, drugDetails) => {
+  return {
+    overallStatus: 'approved',
+    overallLikelihood: 85,
+    criteriaList: [
+      {
+        criterion: 'age',
+        status: 'pass',
+        name: 'Age Requirement',
+        reason: 'Patient meets minimum age requirement',
+        value: patientData.demographics?.age,
+        critical: true,
+      },
+      {
+        criterion: 'bmi',
+        status: 'pass',
+        name: 'BMI Requirement',
+        reason: 'Patient meets BMI criteria',
+        value: patientData.calculatedValues?.bmi,
+        critical: true,
+      },
+      {
+        criterion: 'comorbidities',
+        status: 'pass',
+        name: 'Comorbidities',
+        reason: 'Patient has documented weight-related comorbidities',
+        value: true,
+        critical: false,
+      },
+    ],
+  };
+};
