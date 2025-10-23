@@ -225,4 +225,120 @@ export const captureLaunchParameters = () => {
   return { launch, iss };
 };
 
+// Function to fetch SMART configuration using the `iss` parameter
+export const fetchSmartConfiguration = async (iss) => {
+  try {
+    const response = await fetch(`${iss}/.well-known/smart-configuration`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch SMART configuration');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching SMART configuration:', error);
+    throw error;
+  }
+};
+
+// Exchange the `launch` token for an authorization code
+export const exchangeLaunchTokenForAuthCode = async (authorizeUrl, clientId, redirectUri, launchToken, state, codeChallenge) => {
+  try {
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: EPIC_SCOPES,
+      launch: launchToken,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    });
+
+    const authUrl = `${authorizeUrl}?${params.toString()}`;
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Error exchanging launch token for authorization code:', error);
+    throw error;
+  }
+};
+
+// Exchange the authorization code for an access token
+export const exchangeAuthCodeForAccessToken = async (tokenUrl, clientId, code, redirectUri, codeVerifier) => {
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      code_verifier: codeVerifier,
+    });
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Token exchange failed: ${error}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error exchanging authorization code for access token:', error);
+    throw error;
+  }
+};
+
+// Function to query FHIR APIs for patient data
+export const fetchPatientData = async (fhirBaseUrl, accessToken, patientId) => {
+  try {
+    const response = await fetch(`${fhirBaseUrl}/Patient/${patientId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/fhir+json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch patient data: ${error}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching patient data:', error);
+    throw error;
+  }
+};
+
+// Validate the `iss` parameter against an allowlist
+export const validateIssParameter = (iss) => {
+  const allowedIssValues = [
+    'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
+    'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/DSTU2',
+  ];
+
+  if (!allowedIssValues.includes(iss)) {
+    throw new Error('Invalid iss parameter');
+  }
+};
+
+// Handle errors for missing or invalid `iss` and `launch` parameters
+export const handleLaunchErrors = (iss, launch) => {
+  try {
+    validateIssParameter(iss);
+
+    if (!launch) {
+      throw new Error('Missing launch parameter');
+    }
+  } catch (error) {
+    console.error('Launch error:', error);
+    throw error;
+  }
+};
+
 export default EPIC_CONFIG;

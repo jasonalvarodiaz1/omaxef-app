@@ -1,9 +1,16 @@
 // CoverageDisplay.js - Real-time coverage evaluation display
 import React, { useState, useEffect } from 'react';
-import { evaluateCoverage, getAvailableMedications } from '../utils/coverageEvaluator';
+import { 
+  evaluateCoverage, 
+  getAvailableMedications, 
+  getCoverageForDrug, 
+  getApplicableCriteria, 
+  evaluatePACriteria, 
+  statusIcon 
+} from '../utils/coverageEvaluator';
 import './CoverageDisplay.css';
 
-const CoverageDisplay = ({ patientData }) => {
+const CoverageDisplay = ({ patientData, insurance, drugName, drugCoverage }) => {
   const [selectedMedication, setSelectedMedication] = useState(null);
   const [selectedDose, setSelectedDose] = useState(null);
   const [evaluationResults, setEvaluationResults] = useState(null);
@@ -38,6 +45,26 @@ const CoverageDisplay = ({ patientData }) => {
   }
 
   const selectedMed = medications.find(m => m.id === selectedMedication);
+
+  // Coverage details logic
+  if (!selectedDose) return null;
+  
+  const coverage = getCoverageForDrug(drugCoverage, insurance, drugName);
+  if (!coverage) return <div className="text-gray-500">No coverage info found.</div>;
+
+  const patient = patientData;
+  
+  // Get applicable criteria for this dose
+  const applicableCriteria = getApplicableCriteria(coverage, selectedDose, patient, drugName);
+  
+  // Evaluate each criterion
+  const criteriaEvaluations = applicableCriteria.map(criterion => ({
+    criterion,
+    status: evaluatePACriteria(patient, coverage, selectedDose, criterion, drugName)
+  }));
+  
+  // Check if any criterion failed
+  const hasFailure = criteriaEvaluations.some(evaluation => evaluation.status === 'no');
 
   return (
     <div className="coverage-display">
@@ -213,6 +240,66 @@ const CoverageDisplay = ({ patientData }) => {
           </div>
         </div>
       )}
+
+      {/* Drug Coverage Details */}
+      <div className="drug-coverage-details">
+        <div className="mb-4">
+          <strong>Tier:</strong> {coverage.tier}
+          <br />
+          <strong>Copay:</strong> {coverage.copay}
+          <br />
+          <strong>Prior Auth Required:</strong> {coverage.paRequired ? "Yes" : "No"}
+          <br />
+          <strong>Step Therapy:</strong> {coverage.stepTherapy ? "Yes" : "No"}
+          <br />
+          <strong>Preferred:</strong> 
+          <span className={coverage.preferred ? "text-green-700 font-bold ml-2" : "text-red-700 font-bold ml-2"}>
+            {coverage.preferred ? "Yes" : "No"}
+          </span>
+        </div>
+        
+        {coverage.paCriteria && applicableCriteria.length > 0 && (
+          <>
+            <div className="mt-2 font-bold text-green-700">
+              {coverage.preferred ? "Preferred" : "Non-preferred"} weight loss agent, PA required
+            </div>
+            <div className="mt-2 font-bold">PA Criteria for {selectedDose}:</div>
+            <ul className="list-none ml-0">
+              {criteriaEvaluations.map((evalItem, i) => {
+                const { criterion, status } = evalItem;
+                return (
+                  <li key={i} className="flex items-start mb-2">
+                    <span className="mr-2 mt-1">
+                      {statusIcon(status, criterion.rule)}
+                    </span>
+                    <span className="flex-1">{criterion.rule}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            
+            {/* Show denial message if any criterion failed */}
+            {hasFailure && (
+              <div className="mt-4 p-3 bg-red-100 border border-red-400 rounded text-red-800 font-bold">
+                ⚠️ Drug will not be covered: patient does not meet all PA criteria.
+              </div>
+            )}
+            
+            {/* Show approval message if all criteria met */}
+            {!hasFailure && criteriaEvaluations.length > 0 && (
+              <div className="mt-4 p-3 bg-green-100 border border-green-400 rounded text-green-800 font-bold">
+                ✓ Patient meets all PA criteria for this dose.
+              </div>
+            )}
+          </>
+        )}
+        
+        {coverage.note && (
+          <div className="mt-3 text-sm text-gray-600 italic">
+            Note: {coverage.note}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

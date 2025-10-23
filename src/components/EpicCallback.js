@@ -108,6 +108,29 @@ const EpicCallback = () => {
           sessionStorage.setItem('epic_id_token', tokenData.id_token);
         }
 
+        // Parse and store Epic tokens
+        const fhirPatientId = tokenData.patient || tokenData['__epic.dstu2.patient'];
+        const epicUserId = tokenData.epicUserId || tokenData['sub'];
+        const encounterId = tokenData.encounter;
+        const locationId = tokenData.location;
+        const appointmentId = tokenData.appointment;
+
+        if (fhirPatientId) {
+          sessionStorage.setItem('epic_fhir_patient_id', fhirPatientId);
+        }
+        if (epicUserId) {
+          sessionStorage.setItem('epic_user_id', epicUserId);
+        }
+        if (encounterId) {
+          sessionStorage.setItem('epic_encounter_id', encounterId);
+        }
+        if (locationId) {
+          sessionStorage.setItem('epic_location_id', locationId);
+        }
+        if (appointmentId) {
+          sessionStorage.setItem('epic_appointment_id', appointmentId);
+        }
+
         // Store complete token response for debugging
         sessionStorage.setItem('epic_token_response', JSON.stringify(tokenData));
 
@@ -117,7 +140,19 @@ const EpicCallback = () => {
         // Clear temporary auth data
         sessionStorage.removeItem('code_verifier');
         sessionStorage.removeItem('auth_state');
-        sessionStorage.removeItem('epic_launch');
+
+        // Get and store iss and launch parameters
+        const iss = urlParams.get('iss');
+        const launch = urlParams.get('launch');
+
+        if (!iss || !launch) {
+          console.error('Missing iss or launch parameters');
+          navigate('/error');
+          return;
+        }
+
+        sessionStorage.setItem('epic_iss', iss);
+        sessionStorage.setItem('epic_launch', launch);
 
         // Set success flag
         sessionStorage.setItem('epic_auth_success', 'true');

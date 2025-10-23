@@ -359,6 +359,58 @@ export const quickCoverageCheck = (patientData, medicationId) => {
   return { covered: true, reason: 'Meets basic criteria' };
 };
 
+/**
+ * Get coverage details for a specific drug
+ */
+export const getCoverageForDrug = (drugCoverage, insurance, drugName) => {
+  return drugCoverage.find(
+    (coverage) => coverage.payor === insurance && coverage.drugName === drugName
+  );
+};
+
+/**
+ * Get applicable criteria for a specific dose
+ */
+export const getApplicableCriteria = (coverage, selectedDose, patient, drugName) => {
+  if (!coverage || !coverage.paCriteria) return [];
+
+  return coverage.paCriteria.filter((criterion) => {
+    // Add logic to filter criteria based on dose, patient, and drugName
+    return criterion.dose === selectedDose || !criterion.dose;
+  });
+};
+
+/**
+ * Evaluate a specific PA criterion
+ */
+export const evaluatePACriteria = (patient, coverage, selectedDose, criterion, drugName) => {
+  // Add logic to evaluate the criterion based on patient data
+  if (criterion.rule === 'age') {
+    return patient.demographics.age >= criterion.value ? 'pass' : 'fail';
+  }
+  if (criterion.rule === 'bmi') {
+    return patient.calculatedValues.bmi >= criterion.value ? 'pass' : 'fail';
+  }
+  // Add more rules as needed
+  return 'unknown';
+};
+
+/**
+ * Get status icon for a criterion evaluation
+ */
+export const statusIcon = (status, rule) => {
+  switch (status) {
+    case 'pass':
+      return '✓';
+    case 'fail':
+      return '✗';
+    case 'warning':
+      return '⚠';
+    default:
+      return '?';
+  }
+};
+
 const coverageEvaluator = {
   evaluateCoverage,
   getAvailableMedications,

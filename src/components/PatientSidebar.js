@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchCompletePatientData } from '../utils/patientDataFetcher';
 import './PatientSidebar.css';
 
-const PatientSidebar = ({ onPatientDataLoaded }) => {
+const PatientSidebar = ({ onPatientDataLoaded, devMode = false, mockData = null }) => {
   const [patientData, setPatientData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    const accessToken = sessionStorage.getItem('epic_access_token');
-    const patientId = sessionStorage.getItem('epic_patient_id');
-
-    setIsConnected(!!accessToken);
-
-    if (accessToken && patientId && !patientData) {
-      loadPatientData();
+  const loadPatientData = useCallback(async () => {
+    // Dev mode: use mock data immediately
+    if (devMode && mockData) {
+      console.log('🔧 Loading mock patient data in dev mode');
+      setPatientData(mockData);
+      if (onPatientDataLoaded) {
+        onPatientDataLoaded(mockData);
+      }
+      return;
     }
-  }, [loadPatientData, patientData]);
 
-  const loadPatientData = async () => {
+    // Production mode: fetch from Epic
     setLoading(true);
     setError(null);
 
@@ -30,6 +30,7 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
         throw new Error('No patient ID available. Check Epic launch context.');
       }
 
+      console.log('📡 Fetching patient data from Epic for patient:', patientId);
       const data = await fetchCompletePatientData(patientId);
       setPatientData(data);
 
@@ -37,14 +38,33 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
         onPatientDataLoaded(data);
       }
 
-      console.log('Patient data loaded successfully:', data);
+      console.log('✅ Patient data loaded successfully:', data);
     } catch (err) {
-      console.error('Error loading patient data:', err);
+      console.error('❌ Error loading patient data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [devMode, mockData, onPatientDataLoaded]);
+
+  useEffect(() => {
+    // Dev mode: load mock data immediately
+    if (devMode && mockData) {
+      setIsConnected(true);
+      loadPatientData();
+      return;
+    }
+
+    // Production mode: check for Epic token
+    const accessToken = sessionStorage.getItem('epic_access_token');
+    const patientId = sessionStorage.getItem('epic_patient_id');
+
+    setIsConnected(!!accessToken);
+
+    if (accessToken && patientId && !patientData) {
+      loadPatientData();
+    }
+  }, [devMode, mockData, patientData, loadPatientData]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -52,6 +72,9 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
   };
 
   const getConnectionStatus = () => {
+    if (devMode) {
+      return { text: 'Dev Mode (Mock Data)', className: 'status-connected' };
+    }
     if (!isConnected) {
       return { text: 'Not Connected', className: 'status-disconnected' };
     }
@@ -79,7 +102,7 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
         </div>
       )}
 
-      {!patientData && isConnected && !loading && (
+      {!patientData && isConnected && !loading && !devMode && (
         <button 
           className="load-button"
           onClick={loadPatientData}
@@ -141,6 +164,19 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
                 </span>
               </div>
             </div>
+            
+            {/* Key Diagnoses Badges */}
+            <div className="key-diagnoses">
+              <div className={`diagnosis-badge ${patientData.calculatedValues.hasDiabetes ? 'present' : 'absent'}`}>
+                {patientData.calculatedValues.hasDiabetes ? '✓' : '○'} Diabetes
+              </div>
+              <div className={`diagnosis-badge ${patientData.calculatedValues.hasObesityDiagnosis ? 'present' : 'absent'}`}>
+                {patientData.calculatedValues.hasObesityDiagnosis ? '✓' : '○'} Obesity
+              </div>
+              <div className={`diagnosis-badge ${patientData.calculatedValues.hasHypertension ? 'present' : 'absent'}`}>
+                {patientData.calculatedValues.hasHypertension ? '✓' : '○'} Hypertension
+              </div>
+            </div>
           </section>
 
           <section className="detail-section">
@@ -189,13 +225,30 @@ const PatientSidebar = ({ onPatientDataLoaded }) => {
             </div>
           </section>
 
+          {patientData.coverage && patientData.coverage.length > 0 && (
+            <section className="detail-section">
+              <h3>Coverage</h3>
+              <div className="coverage-list">
+                {patientData.coverage.map(cov => (
+                  <div key={cov.id} className="coverage-item">
+                    <div className="coverage-payor">{cov.payor}</div>
+                    <div className="coverage-type">{cov.type}</div>
+                    {cov.subscriberId && (
+                      <div className="coverage-id">ID: {cov.subscriberId}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="data-timestamp">
             Last updated: {formatDate(patientData.fetchedAt)}
           </div>
         </div>
       )}
 
-      {!isConnected && (
+      {!isConnected && !devMode && (
         <div className="not-connected-message">
           <p>App must be launched from Epic EHR to access patient data.</p>
         </div>
