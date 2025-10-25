@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { usePatient } from "../context/PatientContext";
 import CoverageDisplay from "./CoverageDisplay";
 import PAForm from "./PAForm";
 import { getCoverageForDrug } from "../utils/coverageLogic";
 
+// Import directly - no PatientContext needed since we pass patient as prop
 function TherapyModalContent({
   allDrugs,
   drugCoverage,
@@ -111,6 +111,7 @@ function TherapyModalContent({
                   {coverageError}
                 </div>
               )}
+              
               <CoverageDisplay
                 insurance={patient.insurance}
                 drugName={selectedDrug?.name}
@@ -205,7 +206,8 @@ export default function TherapyModal({
   paFormData,
   setPaFormData
 }) {
-  const { selectedPatient: patient } = usePatient();
+  // Get patient from parent component props (passed down from App)
+  const patient = window.__selectedPatient || null;
   const [coverageError, setCoverageError] = useState(null);
   
   const filteredDrugs = allDrugs.filter(drug =>

@@ -1,8 +1,7 @@
 import React from "react";
-import { usePatient } from "../context/PatientContext";
 import { getCoverageForDrug, getApplicableCriteria } from "../utils/coverageLogic";
 
-export default function PAForm({ 
+export default function PAForm({
   drugName,
   selectedDose,
   drugCoverage,
@@ -12,7 +11,7 @@ export default function PAForm({
   paFormData,
   setPaFormData
 }) {
-  const { selectedPatient: patient } = usePatient();
+  const patient = window.__selectedPatient || null;
   
   if (!paFormOpen) return null;
 

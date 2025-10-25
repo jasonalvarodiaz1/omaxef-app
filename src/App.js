@@ -1,53 +1,16 @@
-// App.js - Unified Epic Integration + EHR UI
+// App.js - Unified Epic Integration + EHR UI with Patient Selection
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { allDrugs } from './data/allDrugs';
 import { drugCoverage } from './data/drugCoverage';
+import { patients as mockPatients } from './data/patients';
 import PatientSidebar from './components/PatientSidebar';
 import PatientChart from './components/PatientChart';
 import TherapyModal from './components/TherapyModal';
 import EpicCallback from './components/EpicCallback';
 import { isEpicLaunch, initiateEpicAuth } from './utils/epicAuth';
 import { fetchCompletePatientData } from './utils/patientDataFetcher';
-import { PatientProvider } from './context/PatientContext';
 import './App.css';
-
-// Mock patient data for dev mode
-const mockPatientData = {
-  demographics: {
-    id: 'mock-patient-001',
-    name: 'Sarah Johnson',
-    age: 52,
-    birthDate: '1972-03-15',
-    gender: 'female',
-    mrn: 'MRN-123456'
-  },
-  conditions: [
-    { id: '1', code: 'E11', display: 'Type 2 Diabetes Mellitus', recordedDate: '2020-01-15' },
-    { id: '2', code: 'I10', display: 'Essential Hypertension', recordedDate: '2019-06-20' },
-    { id: '3', code: 'E66.9', display: 'Obesity, unspecified', recordedDate: '2018-11-10' }
-  ],
-  medications: [
-    { id: '1', medication: 'Metformin 1000mg', dosage: 'twice daily', status: 'active' },
-    { id: '2', medication: 'Lisinopril 10mg', dosage: 'once daily', status: 'active' }
-  ],
-  labs: [
-    { id: '1', code: '39156-5', display: 'BMI', value: 34.2, unit: 'kg/m2', date: '2024-10-15' },
-    { id: '2', code: '29463-7', display: 'Body Weight', value: 210, unit: 'lbs', date: '2024-10-15' },
-    { id: '3', code: '4548-4', display: 'Hemoglobin A1c', value: 7.8, unit: '%', date: '2024-10-01' }
-  ],
-  coverage: [
-    { id: '1', payor: 'CVS Health (Aetna)', type: 'PPO', subscriberId: 'AET123456789' }
-  ],
-  calculatedValues: {
-    bmi: 34.2,
-    weight: { value: 210, unit: 'lbs' },
-    hasObesityDiagnosis: true,
-    hasDiabetes: true,
-    hasHypertension: true
-  },
-  fetchedAt: new Date().toISOString()
-};
 
 // Convert Epic patient data to app format
 const convertEpicToAppFormat = (epicData) => {
@@ -95,6 +58,11 @@ function AppContent() {
   const [devMode, setDevMode] = useState(false);
   const location = useLocation();
   
+  // Patient selection state (for dev mode)
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patients, setPatients] = useState(mockPatients);
+  
   // EHR UI state
   const [activeTab, setActiveTab] = useState('Summary');
   const [therapyModalOpen, setTherapyModalOpen] = useState(false);
@@ -121,7 +89,16 @@ function AppContent() {
   });
 
   // Converted patient for app components
-  const selectedPatient = epicPatientData ? convertEpicToAppFormat(epicPatientData) : null;
+  const selectedPatient = devMode 
+    ? (selectedPatientId ? patients.find(p => p.id === selectedPatientId) : null)
+    : (epicPatientData ? convertEpicToAppFormat(epicPatientData) : null);
+
+  // Store patient globally for TherapyModal and PAForm to access
+  useEffect(() => {
+    if (selectedPatient) {
+      window.__selectedPatient = selectedPatient;
+    }
+  }, [selectedPatient]);
 
   // Update BMI in PA form when patient changes
   useEffect(() => {
@@ -139,7 +116,10 @@ function AppContent() {
       console.log('🔧 DEV MODE: Using mock patient data');
       setDevMode(true);
       setIsAuthenticated(true);
-      setEpicPatientData(mockPatientData);
+      // Auto-select first patient in dev mode
+      if (!selectedPatientId && mockPatients.length > 0) {
+        setSelectedPatientId(mockPatients[0].id);
+      }
       return;
     }
 
@@ -258,74 +238,242 @@ function AppContent() {
         </div>
       ) : (
         <div className="flex flex-row flex-1">
-          {/* Sidebar */}
-          <PatientSidebar 
-            onPatientDataLoaded={handlePatientDataLoaded}
-            devMode={devMode}
-            mockData={devMode ? mockPatientData : null}
-          />
+          {/* Sidebar with Patient Selection */}
+          {devMode ? (
+            <div className="patient-sidebar" style={{ width: '350px', height: '100vh', background: '#f8f9fa', borderRight: '1px solid #dee2e6', overflowY: 'auto', padding: '1.5rem' }}>
+              {/* Header with Patient Selector */}
+              <div className="sidebar-header" style={{ marginBottom: '1.5rem' }}>
+                <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#212529' }}>Patient Information</h2>
+                <div className="connection-status status-connected" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', padding: '0.5rem', borderRadius: '6px', fontWeight: '500', background: '#fff3cd', color: '#856404' }}>
+                  <span className="status-indicator" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffc107', boxShadow: '0 0 4px rgba(255, 193, 7, 0.6)' }}></span>
+                  Dev Mode (Mock Data)
+                </div>
+              </div>
+
+              {/* Patient Search & Selector */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <input
+                  type="text"
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '6px', marginBottom: '0.5rem' }}
+                  placeholder="Search patients..."
+                  value={patientSearch}
+                  onChange={e => setPatientSearch(e.target.value)}
+                />
+                <select
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '6px', background: 'white' }}
+                  value={selectedPatientId}
+                  onChange={e => {
+                    setSelectedPatientId(e.target.value);
+                    setPatientSearch('');
+                  }}
+                >
+                  <option value="">Choose a patient</option>
+                  {patients.filter(p =>
+                    p.name.toLowerCase().includes(patientSearch.toLowerCase())
+                  ).map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Patient Details */}
+              {selectedPatient && (
+                <div className="patient-details" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Demographics</h3>
+                    <div className="detail-grid" style={{ display: 'grid', gap: '0.75rem' }}>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Name:</span>
+                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.name}</span>
+                      </div>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Age:</span>
+                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.age} years</span>
+                      </div>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Gender:</span>
+                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.gender || 'N/A'}</span>
+                      </div>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Insurance:</span>
+                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.insurance}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Clinical Metrics</h3>
+                    <div className="detail-grid" style={{ display: 'grid', gap: '0.75rem' }}>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>BMI:</span>
+                        <span className="value highlight" style={{ color: '#0d6efd', fontWeight: '600', fontSize: '1rem' }}>
+                          {selectedPatient.vitals?.bmi?.toFixed?.(1) || selectedPatient.vitals?.bmi || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Weight:</span>
+                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>
+                          {selectedPatient.vitals?.weight?.value} {selectedPatient.vitals?.weight?.units}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Key Diagnoses Badges */}
+                    <div className="key-diagnoses" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '#0f5132' : '#6c757d' }}>
+                        {selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '✓' : '○'} Diabetes
+                      </div>
+                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '#0f5132' : '#6c757d' }}>
+                        {selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '✓' : '○'} Obesity
+                      </div>
+                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.includes('Hypertension') ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.includes('Hypertension') ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.includes('Hypertension') ? '#0f5132' : '#6c757d' }}>
+                        {selectedPatient.diagnosis?.includes('Hypertension') ? '✓' : '○'} Hypertension
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Active Conditions ({selectedPatient.diagnosis?.length || 0})</h3>
+                    <div className="conditions-list">
+                      {selectedPatient.diagnosis && selectedPatient.diagnosis.length > 0 ? (
+                        <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
+                          {selectedPatient.diagnosis.slice(0, 5).map((diagnosis, idx) => (
+                            <li key={idx} className="condition-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #f1f3f5', fontSize: '0.875rem' }}>
+                              <span className="condition-name" style={{ flex: '1', color: '#212529', fontWeight: '500' }}>{diagnosis}</span>
+                            </li>
+                          ))}
+                          {selectedPatient.diagnosis.length > 5 && (
+                            <li className="more-items" style={{ color: '#6c757d', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
+                              +{selectedPatient.diagnosis.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="empty-state" style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active conditions recorded</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Active Medications ({selectedPatient.medications?.length || 0})</h3>
+                    <div className="medications-list">
+                      {selectedPatient.medications && selectedPatient.medications.length > 0 ? (
+                        <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
+                          {selectedPatient.medications.slice(0, 5).map((med, idx) => (
+                            <li key={idx} className="medication-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #f1f3f5', fontSize: '0.875rem' }}>
+                              <span className="med-name" style={{ flex: '1', color: '#212529', fontWeight: '500' }}>{med.name}</span>
+                              {med.dose && <span className="med-dosage" style={{ color: '#6c757d', fontSize: '0.75rem', fontStyle: 'italic' }}>{med.dose}</span>}
+                            </li>
+                          ))}
+                          {selectedPatient.medications.length > 5 && (
+                            <li className="more-items" style={{ color: '#6c757d', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
+                              +{selectedPatient.medications.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="empty-state" style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active medications</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              )}
+            </div>
+          ) : (
+            <PatientSidebar 
+              onPatientDataLoaded={handlePatientDataLoaded}
+              devMode={false}
+              mockData={null}
+            />
+          )}
           
           {/* Main content */}
-          <main className="flex-1 flex flex-col items-center py-8 overflow-y-auto">
-            <header className="bg-blue-900 text-white py-4 px-8 shadow w-full mb-2 flex justify-between items-center">
-              <h1 className="text-2xl font-bold tracking-wide">Electronic Health Record</h1>
+          <main className="flex-1 flex flex-col overflow-y-auto" style={{ background: '#f8f9fa' }}>
+            <header style={{ background: '#ffffff', borderBottom: '1px solid #dee2e6', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+              <h1 style={{ margin: '0', fontSize: '1.75rem', fontWeight: '600', color: '#212529' }}>Electronic Health Record</h1>
             </header>
             
             {selectedPatient && (
               <>
-                <nav className="flex space-x-0 mb-6 w-full max-w-2xl border-b border-gray-300">
+                <nav style={{ background: 'white', borderBottom: '1px solid #dee2e6', display: 'flex', padding: '0 2rem' }}>
                   {tabNames.map(tab => (
                     <button
                       key={tab}
-                      className={`px-5 py-2 font-semibold border-r border-gray-300 focus:outline-none ${
-                        activeTab === tab 
-                          ? 'bg-white text-blue-900 border-t-2 border-blue-900' 
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
+                      style={{
+                        padding: '1rem 1.5rem',
+                        fontWeight: '500',
+                        fontSize: '0.95rem',
+                        border: 'none',
+                        background: activeTab === tab ? '#f8f9fa' : 'transparent',
+                        color: activeTab === tab ? '#0d6efd' : '#6c757d',
+                        borderBottom: activeTab === tab ? '3px solid #0d6efd' : '3px solid transparent',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        outline: 'none'
+                      }}
                       onClick={() => setActiveTab(tab)}
+                      onMouseEnter={(e) => {
+                        if (activeTab !== tab) {
+                          e.target.style.background = '#f8f9fa';
+                          e.target.style.color = '#495057';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeTab !== tab) {
+                          e.target.style.background = 'transparent';
+                          e.target.style.color = '#6c757d';
+                        }
+                      }}
                     >
                       {tab}
                     </button>
                   ))}
                 </nav>
                 
-                <div className="w-full max-w-2xl">
+                <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
                   {activeTab === 'Summary' && (
-                    <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                       <PatientChart patient={selectedPatient} />
-                      <div className="bg-white p-4 rounded shadow mt-4">
-                        <h2 className="text-xl font-bold mb-2">Allergies</h2>
+                      <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                        <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Allergies</h2>
                         {selectedPatient.allergies && selectedPatient.allergies.length > 0 ? (
-                          <ul className="list-disc ml-6">
+                          <ul style={{ listStyle: 'none', padding: '0', margin: '0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {selectedPatient.allergies.map((allergy, idx) => (
-                              <li key={idx}>{allergy}</li>
+                              <li key={idx} style={{ padding: '0.75rem', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '6px', color: '#856404', fontWeight: '500', fontSize: '0.875rem' }}>
+                                ⚠️ {allergy}
+                              </li>
                             ))}
                           </ul>
                         ) : (
-                          <div className="text-gray-500">None</div>
+                          <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No known allergies</div>
                         )}
                       </div>
                     </div>
                   )}
                   
                   {activeTab === 'Medications' && (
-                    <div className="bg-white p-4 rounded shadow mt-4">
-                      <h2 className="text-xl font-bold mb-2">Medications</h2>
+                    <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Medications</h2>
                       {selectedPatient.medications && selectedPatient.medications.length > 0 ? (
-                        <ul className="list-disc ml-6">
+                        <ul style={{ listStyle: 'none', padding: '0', margin: '0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {selectedPatient.medications.map((med, idx) => (
-                            <li key={idx}>
-                              <span className="font-bold">{med.name}</span> — {med.dose}<br />
-                              <span className="text-gray-700 italic">{med.sig}</span>
+                            <li key={idx} style={{ padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                                <span style={{ fontWeight: '600', color: '#212529', fontSize: '0.95rem' }}>{med.name}</span>
+                                <span style={{ color: '#6c757d', fontSize: '0.875rem', fontWeight: '500' }}>{med.dose}</span>
+                              </div>
+                              <span style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic' }}>{med.sig}</span>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="text-gray-500">No medications listed.</div>
+                        <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No medications listed.</div>
                       )}
                       <button
-                        className="mt-6 px-6 py-2 bg-blue-700 text-white rounded shadow font-bold hover:bg-blue-800 transition"
+                        style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', width: '100%', transition: 'background 0.2s' }}
                         onClick={() => setTherapyModalOpen(true)}
+                        onMouseEnter={(e) => e.target.style.background = '#0b5ed7'}
+                        onMouseLeave={(e) => e.target.style.background = '#0d6efd'}
                       >
                         Initiate Therapy
                       </button>
@@ -333,29 +481,22 @@ function AppContent() {
                   )}
                   
                   {activeTab === 'Results' && (
-                    <div className="bg-white p-4 rounded shadow mt-4">
-                      <h2 className="text-xl font-bold mb-2">Lab Results</h2>
+                    <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Lab Results</h2>
                       {selectedPatient.labs ? (
-                        <table className="min-w-full text-left">
-                          <thead>
-                            <tr>
-                              <th className="pr-4">Test</th>
-                              <th className="pr-4">Value</th>
-                              <th className="pr-4">Units</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Object.entries(selectedPatient.labs).map(([test, obj]) => (
-                              <tr key={test}>
-                                <td className="pr-4 font-semibold">{test.toUpperCase()}</td>
-                                <td className="pr-4">{obj.value}</td>
-                                <td className="pr-4">{obj.units}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {Object.entries(selectedPatient.labs).map(([test, obj]) => (
+                            <div key={test} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                              <span style={{ fontWeight: '600', color: '#495057', fontSize: '0.95rem', textTransform: 'uppercase' }}>{test}</span>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+                                <span style={{ fontWeight: '600', color: '#212529', fontSize: '1.1rem' }}>{obj.value}</span>
+                                <span style={{ color: '#6c757d', fontSize: '0.875rem' }}>{obj.units}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
-                        <div className="text-gray-500">No lab results available.</div>
+                        <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No lab results available.</div>
                       )}
                     </div>
                   )}
@@ -391,16 +532,29 @@ function AppContent() {
   );
 }
 
+// Update logo to use the provided omaxef logo
+const Logo = () => (
+  <div style={{
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 1000,
+  }}>
+    <img src="/omaxef-logo.png" alt="Omaxef Logo" style={{ width: '50px', height: '50px' }} />
+  </div>
+);
+
 function App() {
   return (
-    <PatientProvider>
-      <Router>
+    <Router>
+      <div className="App">
         <Routes>
           <Route path="/callback" element={<EpicCallback />} />
           <Route path="/" element={<AppContent />} />
         </Routes>
-      </Router>
-    </PatientProvider>
+        <Logo />
+      </div>
+    </Router>
   );
 }
 

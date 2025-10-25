@@ -1,9 +1,42 @@
 // Coverage lookup and PA criteria evaluation logic
+import React from 'react';
 import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
 
-export function getCoverageForDrug(insurance, drugName) {
-  if (!insurance || !insurance[drugName]) return null;
-  return insurance[drugName];
+export function getCoverageForDrug(drugCoverage, insurance, drugName) {
+  console.log('getCoverageForDrug called:', { insurance, drugName });
+  console.log('drugCoverage structure:', drugCoverage);
+  
+  // Handle both formats:
+  // 1. drugCoverage[insurance][drugName] - your current format
+  // 2. drugCoverage (direct object) - if passed directly
+  
+  if (!drugCoverage) {
+    console.error('No drugCoverage data provided');
+    return null;
+  }
+  
+  // If drugCoverage is already the insurance-specific object
+  if (drugCoverage[drugName] && !drugCoverage[insurance]) {
+    console.log('Using direct drugCoverage lookup');
+    return drugCoverage[drugName];
+  }
+  
+  // Standard lookup: drugCoverage[insurance][drugName]
+  if (!drugCoverage[insurance]) {
+    console.error(`No coverage data for insurance: ${insurance}`);
+    console.log('Available insurances:', Object.keys(drugCoverage));
+    return null;
+  }
+  
+  if (!drugCoverage[insurance][drugName]) {
+    console.error(`No coverage data for drug: ${drugName} under ${insurance}`);
+    console.log('Available drugs:', Object.keys(drugCoverage[insurance]));
+    return null;
+  }
+  
+  const coverage = drugCoverage[insurance][drugName];
+  console.log('Found coverage:', coverage);
+  return coverage;
 }
 
 export function getApplicableCriteria(drug, dose, patient, drugName) {
