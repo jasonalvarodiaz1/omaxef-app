@@ -1,5 +1,11 @@
 import React from "react";
 import { getCoverageForDrug, getApplicableCriteria, evaluatePACriteria, statusIcon } from "../utils/coverageLogic";
+import { normalizeStatus, CriteriaStatus } from "../constants";
+
+// StatusIcon component for rendering criterion status
+const StatusIcon = ({ status, rule }) => {
+  return statusIcon(status, rule);
+};
 
 export default function CoverageDisplay({ 
   insurance, 
@@ -54,9 +60,9 @@ export default function CoverageDisplay({
   }));
 
   const totalCriteria = criteriaEvaluations.length;
-  const metCriteria = criteriaEvaluations.filter(e => e.status === 'yes').length;
-  const failedCriteria = criteriaEvaluations.filter(e => e.status === 'no').length;
-  const notApplicable = criteriaEvaluations.filter(e => e.status === 'not_applicable').length;
+  const metCriteria = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.MET).length;
+  const failedCriteria = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.NOT_MET).length;
+  const notApplicable = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.NOT_APPLICABLE).length;
 
   let approvalLikelihood = 0;
   let likelihoodColor = 'red';
@@ -140,7 +146,7 @@ export default function CoverageDisplay({
               return (
                 <li key={i} className="flex items-start p-2 rounded hover:bg-gray-50">
                   <span className="mr-2 mt-0.5 flex-shrink-0">
-                    {statusIcon(status, criterion.rule)}
+                    <StatusIcon status={status} rule={criterion.rule} />
                   </span>
                   <span className="flex-1 text-gray-800">{criterion.rule}</span>
                 </li>

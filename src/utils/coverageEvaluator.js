@@ -172,10 +172,14 @@ const generateRecommendations = (criteriaResults, drug) => {
 
   // Check each criterion and provide specific guidance
   criteriaList.forEach(criterion => {
-    if (criterion.status === 'fail' || criterion.status === 'warning') {
-      switch (criterion.criterion) {
+    const normalized = normalizeStatus(criterion.status);
+    if (normalized === CriteriaStatus.NOT_MET || normalized === CriteriaStatus.WARNING) {
+      // Use criterionType if available, otherwise fall back to criterion
+      const criterionType = criterion.criterionType || criterion.type || criterion.criterion;
+      
+      switch (criterionType) {
         case 'age':
-          if (criterion.status === 'fail') {
+          if (normalized === CriteriaStatus.NOT_MET) {
             recommendations.push({
               priority: 'high',
               category: 'Eligibility',
@@ -186,10 +190,10 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         case 'bmi':
-          if (criterion.status === 'fail') {
+          if (normalized === CriteriaStatus.NOT_MET) {
             const hasComorbidity = criteriaResults.criteriaList.find(
-              c => c.criterion === 'comorbidities'
-            )?.status === 'pass';
+              c => (c.criterionType || c.criterion) === 'comorbidities'
+            )?.status === CriteriaStatus.MET;
             
             if (hasComorbidity) {
               recommendations.push({
@@ -210,6 +214,7 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         case 'dose_progression':
+        case 'doseProgression':
           recommendations.push({
             priority: 'medium',
             category: 'Treatment History',
@@ -219,6 +224,7 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         case 'weight_loss':
+        case 'weightLoss':
           recommendations.push({
             priority: 'medium',
             category: 'Effectiveness',
@@ -228,6 +234,7 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         case 'maintenance':
+        case 'weightMaintained':
           recommendations.push({
             priority: 'low',
             category: 'Maintenance',
@@ -246,6 +253,7 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         case 'lifestyle_modifications':
+        case 'lifestyleModification':
           recommendations.push({
             priority: 'high',
             category: 'Prior Authorization',
@@ -255,7 +263,7 @@ const generateRecommendations = (criteriaResults, drug) => {
           break;
 
         default:
-          console.warn('Unhandled criterion:', criterion.criterion);
+          console.warn('Unhandled criterion:', criterionType);
           break;
       }
     }

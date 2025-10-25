@@ -1,4 +1,5 @@
 // Enhanced criteria evaluation system for real-world PA requirements
+import { CriteriaStatus, normalizeStatus } from '../constants';
 
 export const evaluateCriterion = (patient, criterion, drug, dose, drugName) => {
   const doseInfo = getDoseInfo(drug, dose);
@@ -6,7 +7,7 @@ export const evaluateCriterion = (patient, criterion, drug, dose, drugName) => {
   // If criterion doesn't apply to this dose phase, mark as N/A
   if (criterion.appliesTo && !criterion.appliesTo.includes(doseInfo.doseType)) {
     return { 
-      status: 'not_applicable', 
+      status: CriteriaStatus.NOT_APPLICABLE, 
       reason: 'Not required for this dose phase',
       displayValue: 'N/A',
       criterionType: criterion.type
@@ -77,7 +78,7 @@ function evaluateAge(patient, criterion) {
   const met = age >= minAge;
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'age',
     value: age,
     displayValue: `${age} years`,
@@ -113,7 +114,7 @@ function evaluateBMI(patient, criterion) {
   }
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'bmi',
     value: bmi,
     displayValue: `${bmi.toFixed(1)}`,
@@ -131,7 +132,7 @@ function evaluateDiagnosis(patient, criterion) {
   );
   
   return {
-    status: hasDiagnosis ? 'met' : 'not_met',
+    status: hasDiagnosis ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'diagnosis',
     value: hasDiagnosis,
     displayValue: hasDiagnosis ? 'Yes' : 'No',
@@ -157,7 +158,7 @@ function evaluateLabValue(patient, criterion) {
   
   if (labValue === null) {
     return {
-      status: 'not_met',
+      status: CriteriaStatus.NOT_MET,
       criterionType: 'labValue',
       value: null,
       displayValue: 'Not documented',
@@ -170,7 +171,7 @@ function evaluateLabValue(patient, criterion) {
   const met = labValue >= minValue;
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'labValue',
     value: labValue,
     displayValue: `${labValue}`,
@@ -193,7 +194,7 @@ function evaluateLifestyleModification(patient, criterion) {
   
   if (!hasProgram) {
     return {
-      status: 'not_met',
+      status: CriteriaStatus.NOT_MET,
       criterionType: 'lifestyleModification',
       value: false,
       displayValue: 'Not documented',
@@ -204,7 +205,7 @@ function evaluateLifestyleModification(patient, criterion) {
   }
   
   return {
-    status: failedProgram ? 'met' : 'not_met',
+    status: failedProgram ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'lifestyleModification',
     value: hasProgram,
     displayValue: hasProgram ? 'Yes' : 'No',
@@ -228,7 +229,7 @@ function evaluatePriorTherapies(patient, criterion) {
   const met = trialCount >= minTrials;
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'priorTherapies',
     value: trialCount,
     displayValue: `${trialCount} trials`,
@@ -254,7 +255,7 @@ function evaluateStepTherapy(patient, criterion) {
   if (requiredMed) {
     const hasMed = allMeds.some(m => m.includes(requiredMed.toLowerCase()));
     return {
-      status: hasMed ? 'met' : 'not_met',
+      status: hasMed ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
       criterionType: 'stepTherapy',
       value: hasMed,
       displayValue: hasMed ? 'Completed' : 'Not documented',
@@ -274,7 +275,7 @@ function evaluateStepTherapy(patient, criterion) {
     const met = metCount >= requiredMeds.length;
     
     return {
-      status: met ? 'met' : 'not_met',
+      status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
       criterionType: 'stepTherapy',
       value: metCount,
       displayValue: `${metCount}/${requiredMeds.length} completed`,
@@ -293,7 +294,7 @@ function evaluateStepTherapy(patient, criterion) {
     );
     
     return {
-      status: triedPreferred ? 'met' : 'not_met',
+      status: triedPreferred ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
       criterionType: 'stepTherapy',
       value: triedPreferred,
       displayValue: triedPreferred ? 'Completed' : 'Required',
@@ -306,7 +307,7 @@ function evaluateStepTherapy(patient, criterion) {
   }
   
   return {
-    status: 'not_met',
+    status: CriteriaStatus.NOT_MET,
     criterionType: 'stepTherapy',
     value: false,
     displayValue: 'Not documented',
@@ -321,7 +322,7 @@ function evaluatePrescriberQualification(patient, criterion) {
   // For now, assume qualified (would need to integrate with provider database)
   
   return {
-    status: 'met',
+    status: CriteriaStatus.MET,
     criterionType: 'prescriberQualification',
     value: true,
     displayValue: 'Assumed qualified',
@@ -339,7 +340,7 @@ function evaluateContraindications(patient, criterion) {
   );
   
   return {
-    status: hasContraindication ? 'not_met' : 'met',
+    status: hasContraindication ? CriteriaStatus.NOT_MET : CriteriaStatus.MET,
     criterionType: 'contraindications',
     value: !hasContraindication,
     displayValue: hasContraindication ? 'Present' : 'None documented',
@@ -357,7 +358,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   
   if (!doseSchedule) {
     return { 
-      status: 'met', 
+      status: CriteriaStatus.MET, 
       criterionType: 'doseProgression', 
       reason: 'No dose schedule defined', 
       displayValue: 'N/A',
@@ -370,7 +371,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   
   if (requestedDoseIndex === -1) {
     return {
-      status: 'not_met',
+      status: CriteriaStatus.NOT_MET,
       criterionType: 'doseProgression',
       reason: `${requestedDose} is not a valid dose for ${drugName}`,
       displayValue: '❌ Invalid dose',
@@ -390,7 +391,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
       const firstDose = doseSchedule[0];
       if (requestedDose === firstDose.value) {
         return {
-          status: 'met',
+          status: CriteriaStatus.MET,
           criterionType: 'doseProgression',
           reason: `Patient is drug-naive. Starting with ${requestedDose} (first dose in schedule) is appropriate.`,
           displayValue: '✅ Starting dose',
@@ -398,7 +399,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
         };
       } else {
         return {
-          status: 'not_met',
+          status: CriteriaStatus.NOT_MET,
           criterionType: 'doseProgression',
           reason: `Patient has never been on ${drugName}. Must start with ${firstDose.value} (starting dose), not ${requestedDose}.`,
           displayValue: '❌ Must start at beginning',
@@ -410,7 +411,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     
     if (requestedDose === startingDose.value) {
       return {
-        status: 'met',
+        status: CriteriaStatus.MET,
         criterionType: 'doseProgression',
         reason: `Patient is drug-naive (never been on ${drugName}). Starting with ${requestedDose} (starting dose) is appropriate.`,
         displayValue: '✅ Starting dose - Drug naive',
@@ -418,7 +419,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
       };
     } else {
       return {
-        status: 'not_met',
+        status: CriteriaStatus.NOT_MET,
         criterionType: 'doseProgression',
         reason: `Patient has NEVER been on ${drugName}. Cannot start at ${requestedDose}. Must begin with ${startingDose.value} (starting dose) per titration protocol.`,
         displayValue: '❌ Cannot skip starting dose',
@@ -446,7 +447,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     
     if (paExpired) {
       return {
-        status: 'met',
+        status: CriteriaStatus.MET,
         criterionType: 'doseProgression',
         reason: `Continuation of current ${dosePhase} dose ${requestedDose}. PA expired on ${drugHistory.paExpirationDate} - REAUTHORIZATION REQUIRED.`,
         displayValue: '⚠️ PA Reauth Required',
@@ -479,7 +480,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     // Check if already on max dose - cannot escalate further
     if (isOnMaxDose) {
       return {
-        status: 'not_met',
+        status: CriteriaStatus.NOT_MET,
         criterionType: 'doseProgression',
         reason: `Patient is already on maximum dose (${currentDose}). Cannot escalate to ${requestedDose} - there is no higher dose available.`,
         displayValue: '❌ Already at max dose',
@@ -499,7 +500,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     
     if (daysSinceDoseStart < minDaysOnDose) {
       return {
-        status: 'not_met',
+        status: CriteriaStatus.NOT_MET,
         criterionType: 'doseProgression',
         reason: `Patient has only been on ${currentDose} for ${daysSinceDoseStart} days. Must remain on each dose for at least ${minDaysOnDose} days (4 weeks) before titrating to avoid side effects and ensure safety.`,
         displayValue: `❌ Too soon (${daysSinceDoseStart}d)`,
@@ -511,7 +512,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     }
     
     return {
-      status: 'met',
+      status: CriteriaStatus.MET,
       criterionType: 'doseProgression',
       reason: `Appropriate dose escalation from ${currentDose} to ${requestedDose} per titration schedule. Patient has been on ${currentDose} for ${daysSinceDoseStart} days (≥${minDaysOnDose} days required).`,
       displayValue: '✅ Next dose - Escalation',
@@ -526,7 +527,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   if (requestedDoseIndex < currentDoseIndex) {
     // Dose reduction may be appropriate for tolerability issues
     return {
-      status: 'met',
+      status: CriteriaStatus.MET,
       criterionType: 'doseProgression',
       reason: `Dose reduction from ${currentDose} to ${requestedDose}. May be appropriate for tolerability issues (nausea, vomiting, GI side effects). Document clinical reason for de-escalation in patient chart.`,
       displayValue: '⚠️ De-escalation',
@@ -541,7 +542,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   if (requestedDoseIndex > currentDoseIndex + 1) {
     const nextAppropriateDose = doseSchedule[currentDoseIndex + 1].value;
     return {
-      status: 'not_met',
+      status: CriteriaStatus.NOT_MET,
       criterionType: 'doseProgression',
       reason: `Cannot skip from ${currentDose} to ${requestedDose}. Must progress sequentially through titration schedule to ensure patient safety and tolerability. Next appropriate dose is ${nextAppropriateDose}.`,
       displayValue: '❌ Skipping doses',
@@ -554,7 +555,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   
   // CASE 3: Should never reach here, but handle edge case
   return {
-    status: 'not_met',
+    status: CriteriaStatus.NOT_MET,
     criterionType: 'doseProgression',
     reason: `Unable to evaluate dose progression. Current: ${currentDose}, Requested: ${requestedDose}`,
     displayValue: '? Unknown',
@@ -565,7 +566,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
 function evaluateWeightLoss(patient, criterion, doseInfo) {
   if (doseInfo.isStartingDose) {
     return {
-      status: 'not_applicable',
+      status: CriteriaStatus.NOT_APPLICABLE,
       reason: 'Not required for starting dose',
       displayValue: 'N/A',
       criterionType: 'weightLoss'
@@ -579,7 +580,7 @@ function evaluateWeightLoss(patient, criterion, doseInfo) {
   const met = percentage >= required;
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'weightLoss',
     value: percentage,
     displayValue: `${percentage}%`,
@@ -594,7 +595,7 @@ function evaluateWeightLoss(patient, criterion, doseInfo) {
 function evaluateWeightMaintained(patient, criterion, doseInfo) {
   if (doseInfo.isStartingDose) {
     return {
-      status: 'not_applicable',
+      status: CriteriaStatus.NOT_APPLICABLE,
       reason: 'Not required for starting dose',
       displayValue: 'N/A',
       criterionType: 'weightMaintained'
@@ -610,7 +611,7 @@ function evaluateWeightMaintained(patient, criterion, doseInfo) {
   const met = currentPercentage >= required && maintenanceDuration >= requiredDuration;
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'weightMaintained',
     value: currentPercentage,
     displayValue: `${currentPercentage}%`,
@@ -627,7 +628,7 @@ function evaluateWeightMaintained(patient, criterion, doseInfo) {
 function evaluateEfficacy(patient, criterion) {
   // Placeholder for efficacy evaluation (would check A1C improvement, weight loss, etc.)
   return {
-    status: 'met',
+    status: CriteriaStatus.MET,
     criterionType: 'efficacy',
     value: true,
     displayValue: 'Documented',
@@ -652,7 +653,7 @@ function evaluateCVDRisk(patient, criterion) {
   const highRisk = hasCVD || riskFactorCount >= 2;
   
   return {
-    status: highRisk ? 'met' : 'not_met',
+    status: highRisk ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'cvdRisk',
     value: highRisk,
     displayValue: highRisk ? 'High risk' : 'Not documented',
@@ -699,7 +700,7 @@ function evaluateDocumentation(patient, criterion) {
   }
   
   return {
-    status: met ? 'met' : 'not_met',
+    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
     criterionType: 'documentation',
     value: documentationScore,
     displayValue: met ? `${documentationScore}/5 components` : 'Incomplete',
@@ -746,13 +747,16 @@ function getDoseInfo(drug, dose) {
 
 // Convert status to simple yes/no/not_applicable for backward compatibility
 export const getSimpleStatus = (result) => {
-  switch (result.status) {
-    case 'met':
+  const normalized = normalizeStatus(result.status);
+  switch (normalized) {
+    case CriteriaStatus.MET:
       return 'yes';
-    case 'not_met':
+    case CriteriaStatus.NOT_MET:
       return 'no';
-    case 'not_applicable':
+    case CriteriaStatus.NOT_APPLICABLE:
       return 'not_applicable';
+    case CriteriaStatus.WARNING:
+      return 'warning';
     default:
       return null;
   }
@@ -760,8 +764,8 @@ export const getSimpleStatus = (result) => {
 
 // Calculate PA approval likelihood based on criteria evaluation results
 export const calculateApprovalLikelihood = (criteriaResults) => {
-  const applicable = criteriaResults.filter(r => r.status !== 'not_applicable');
-  const met = applicable.filter(r => r.status === 'met').length;
+  const applicable = criteriaResults.filter(r => normalizeStatus(r.status) !== CriteriaStatus.NOT_APPLICABLE);
+  const met = applicable.filter(r => normalizeStatus(r.status) === CriteriaStatus.MET).length;
   const total = applicable.length;
   
   if (total === 0) {
@@ -776,7 +780,7 @@ export const calculateApprovalLikelihood = (criteriaResults) => {
   
   // Critical failures (automatic denial)
   const criticalCriteria = applicable.filter(r => r.critical === true);
-  const criticalFailures = criticalCriteria.filter(r => r.status === 'not_met');
+  const criticalFailures = criticalCriteria.filter(r => normalizeStatus(r.status) === CriteriaStatus.NOT_MET);
   
   if (criticalFailures.length > 0) {
     const failedCriterion = criticalFailures[0];
