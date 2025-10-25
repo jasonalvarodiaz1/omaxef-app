@@ -1,6 +1,7 @@
 // Coverage lookup and PA criteria evaluation logic
 import React from 'react';
 import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
+import { normalizeStatus, CriteriaStatus } from '../constants';
 
 export function getCoverageForDrug(drugCoverage, insurance, drugName) {
   console.log('getCoverageForDrug called:', { insurance, drugName });
@@ -114,15 +115,18 @@ export function getDoseInfo(drug, dose) {
 
 // Status icon renderer
 export function statusIcon(status, rule) {
+  const normalized = normalizeStatus(status);
+  
   if (rule && rule.includes("Documentation")) {
-    if (status === "yes") {
+    if (normalized === CriteriaStatus.MET) {
       return <span className="text-green-700 font-bold mr-2" style={{color: '#15803d'}}>✓</span>;
     }
     return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>~</span>;
   }
-  if (status === "yes") return <span className="text-green-700 font-bold mr-2" style={{color: '#15803d'}}>✓</span>;
-  if (status === "no") return <span style={{color: "red", fontWeight: "bold", marginRight: 8}}>✗</span>;
-  if (status === "not_applicable") return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>N/A</span>;
+  if (normalized === CriteriaStatus.MET) return <span className="text-green-700 font-bold mr-2" style={{color: '#15803d'}}>✓</span>;
+  if (normalized === CriteriaStatus.NOT_MET) return <span style={{color: "red", fontWeight: "bold", marginRight: 8}}>✗</span>;
+  if (normalized === CriteriaStatus.NOT_APPLICABLE) return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>N/A</span>;
+  if (normalized === CriteriaStatus.WARNING) return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>⚠</span>;
   return null;
 }
 
