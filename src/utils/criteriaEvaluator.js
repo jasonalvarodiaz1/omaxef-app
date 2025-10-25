@@ -373,7 +373,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
       status: 'not_met',
       criterionType: 'doseProgression',
       reason: `${requestedDose} is not a valid dose for ${drugName}`,
-      displayValue: 'Invalid dose',
+      displayValue: '❌ Invalid dose',
       critical: true
     };
   }
@@ -385,20 +385,43 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     // Must start with starting dose (first dose in schedule)
     const startingDose = doseSchedule.find(d => d.phase === "starting");
     
+    if (!startingDose) {
+      // Fallback if no explicit starting phase
+      const firstDose = doseSchedule[0];
+      if (requestedDose === firstDose.value) {
+        return {
+          status: 'met',
+          criterionType: 'doseProgression',
+          reason: `Patient is drug-naive. Starting with ${requestedDose} (first dose in schedule) is appropriate.`,
+          displayValue: '✅ Starting dose',
+          critical: false
+        };
+      } else {
+        return {
+          status: 'not_met',
+          criterionType: 'doseProgression',
+          reason: `Patient has never been on ${drugName}. Must start with ${firstDose.value} (starting dose), not ${requestedDose}.`,
+          displayValue: '❌ Must start at beginning',
+          requiredDose: firstDose.value,
+          critical: true
+        };
+      }
+    }
+    
     if (requestedDose === startingDose.value) {
       return {
         status: 'met',
         criterionType: 'doseProgression',
-        reason: `Patient is drug-naive. Starting with ${requestedDose} (starting dose) is appropriate.`,
-        displayValue: '✓ Starting dose',
+        reason: `Patient is drug-naive (never been on ${drugName}). Starting with ${requestedDose} (starting dose) is appropriate.`,
+        displayValue: '✅ Starting dose - Drug naive',
         critical: false
       };
     } else {
       return {
         status: 'not_met',
         criterionType: 'doseProgression',
-        reason: `Patient has never been on ${drugName}. Must start with ${startingDose.value} (starting dose), not ${requestedDose}.`,
-        displayValue: '✗ Must start at beginning',
+        reason: `Patient has NEVER been on ${drugName}. Cannot start at ${requestedDose}. Must begin with ${startingDose.value} (starting dose) per titration protocol.`,
+        displayValue: '❌ Cannot skip starting dose',
         requiredDose: startingDose.value,
         critical: true
       };
@@ -409,35 +432,63 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
   const currentDose = drugHistory.currentDose;
   const currentDoseIndex = doseSchedule.findIndex(d => d.value === currentDose);
   
+  // Check if patient is on max dose
+  const maxDose = doseSchedule[doseSchedule.length - 1];
+  const isOnMaxDose = currentDose === maxDose.value;
+  
   // CASE 2A: Continuation - requesting SAME dose (refill)
   if (requestedDose === currentDose) {
     // Check if PA expired and needs reauthorization
     const paExpired = drugHistory.paExpirationDate && new Date(drugHistory.paExpirationDate) < new Date();
     
+    const currentDoseStartDate = drugHistory.doses?.find(d => d.value === currentDose)?.startDate;
+    const dosePhase = doseSchedule[currentDoseIndex]?.phase || 'unknown';
+    
     if (paExpired) {
       return {
         status: 'met',
         criterionType: 'doseProgression',
-        reason: `Continuation of current dose ${requestedDose}. Note: PA expired ${drugHistory.paExpirationDate} - REAUTHORIZATION REQUIRED.`,
-        displayValue: '⚠️ Reauth needed',
+        reason: `Continuation of current ${dosePhase} dose ${requestedDose}. PA expired on ${drugHistory.paExpirationDate} - REAUTHORIZATION REQUIRED.`,
+        displayValue: '⚠️ PA Reauth Required',
         needsReauthorization: true,
         expirationDate: drugHistory.paExpirationDate,
+        currentDose: currentDose,
+        isMaxDose: isOnMaxDose,
         critical: false
       };
+    }
+    
+    let displayText = '✅ Continuation';
+    if (isOnMaxDose) {
+      displayText = '✅ Max dose - Continuation';
     }
     
     return {
       status: 'met',
       criterionType: 'doseProgression',
-      reason: `Continuation of current dose ${requestedDose}. Patient has been on this dose since ${drugHistory.doses?.find(d => d.value === currentDose)?.startDate || 'N/A'}.`,
-      displayValue: '✓ Continuation',
+      reason: `Continuation of current ${dosePhase} dose ${requestedDose}.${isOnMaxDose ? ' Patient is on maximum dose.' : ''} Patient has been on this dose since ${currentDoseStartDate || 'N/A'}.`,
+      displayValue: displayText,
       currentDose: currentDose,
+      isMaxDose: isOnMaxDose,
       critical: false
     };
   }
   
   // CASE 2B: Titration UP - requesting NEXT dose in schedule
   if (requestedDoseIndex === currentDoseIndex + 1) {
+    // Check if already on max dose - cannot escalate further
+    if (isOnMaxDose) {
+      return {
+        status: 'not_met',
+        criterionType: 'doseProgression',
+        reason: `Patient is already on maximum dose (${currentDose}). Cannot escalate to ${requestedDose} - there is no higher dose available.`,
+        displayValue: '❌ Already at max dose',
+        currentDose: currentDose,
+        isMaxDose: true,
+        critical: true
+      };
+    }
+    
     // Check if patient has been on current dose long enough
     const currentDoseStartDate = drugHistory.doses?.find(d => d.value === currentDose)?.startDate;
     const daysSinceDoseStart = currentDoseStartDate 
@@ -450,8 +501,8 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
       return {
         status: 'not_met',
         criterionType: 'doseProgression',
-        reason: `Patient has only been on ${currentDose} for ${daysSinceDoseStart} days. Must remain on each dose for at least ${minDaysOnDose} days (4 weeks) before titrating.`,
-        displayValue: `✗ Too soon (${daysSinceDoseStart} days)`,
+        reason: `Patient has only been on ${currentDose} for ${daysSinceDoseStart} days. Must remain on each dose for at least ${minDaysOnDose} days (4 weeks) before titrating to avoid side effects and ensure safety.`,
+        displayValue: `❌ Too soon (${daysSinceDoseStart}d)`,
         currentDose: currentDose,
         daysOnCurrentDose: daysSinceDoseStart,
         requiredDays: minDaysOnDose,
@@ -462,8 +513,8 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     return {
       status: 'met',
       criterionType: 'doseProgression',
-      reason: `Appropriate dose escalation from ${currentDose} to ${requestedDose} per titration schedule. Patient has been on ${currentDose} for ${daysSinceDoseStart} days.`,
-      displayValue: '✓ Next dose',
+      reason: `Appropriate dose escalation from ${currentDose} to ${requestedDose} per titration schedule. Patient has been on ${currentDose} for ${daysSinceDoseStart} days (≥${minDaysOnDose} days required).`,
+      displayValue: '✅ Next dose - Escalation',
       previousDose: currentDose,
       newDose: requestedDose,
       daysOnPreviousDose: daysSinceDoseStart,
@@ -477,7 +528,7 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     return {
       status: 'met',
       criterionType: 'doseProgression',
-      reason: `Dose reduction from ${currentDose} to ${requestedDose}. May be appropriate for tolerability issues - document reason in chart.`,
+      reason: `Dose reduction from ${currentDose} to ${requestedDose}. May be appropriate for tolerability issues (nausea, vomiting, GI side effects). Document clinical reason for de-escalation in patient chart.`,
       displayValue: '⚠️ De-escalation',
       currentDose: currentDose,
       newDose: requestedDose,
@@ -492,8 +543,8 @@ function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInf
     return {
       status: 'not_met',
       criterionType: 'doseProgression',
-      reason: `Cannot skip from ${currentDose} to ${requestedDose}. Must progress sequentially. Next appropriate dose is ${nextAppropriateDose}.`,
-      displayValue: '✗ Skipping doses',
+      reason: `Cannot skip from ${currentDose} to ${requestedDose}. Must progress sequentially through titration schedule to ensure patient safety and tolerability. Next appropriate dose is ${nextAppropriateDose}.`,
+      displayValue: '❌ Skipping doses',
       currentDose: currentDose,
       requestedDose: requestedDose,
       requiredNextDose: nextAppropriateDose,
