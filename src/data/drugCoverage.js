@@ -67,13 +67,18 @@ export const drugCoverage = {
         { 
           rule: "Chart documentation includes: baseline weight, height, BMI, comorbidities, prior weight loss attempts with dates and outcomes, lifestyle modification plan", 
           type: "documentation"
+        },
+        {
+          rule: "Patient must follow proper dose titration schedule (drug-naive patients must start with 0.25 mg starting dose)",
+          type: "doseProgression",
+          critical: true
         }
       ],
       
       evaluationRules: {
-        starting: ["age", "bmi", "lifestyleModification", "priorTherapies", "contraindications", "prescriberQualification", "documentation"],
-        titration: ["age", "bmi", "contraindications", "documentation"],
-        maintenance: ["age", "bmi", "contraindications", "weightLoss", "weightMaintained", "documentation"]
+        starting: ["age", "bmi", "lifestyleModification", "priorTherapies", "contraindications", "prescriberQualification", "documentation", "doseProgression"],
+        titration: ["age", "bmi", "contraindications", "documentation", "doseProgression"],
+        maintenance: ["age", "bmi", "contraindications", "weightLoss", "weightMaintained", "documentation", "doseProgression"]
       },
       
       reauthorizationRequired: "Every 6-12 months",
@@ -138,12 +143,17 @@ export const drugCoverage = {
         { 
           rule: "Chart documentation includes: diabetes diagnosis with ICD-10 code, baseline and current A1C, prior therapies tried with dates, CV risk assessment", 
           type: "documentation"
+        },
+        {
+          rule: "Patient must follow proper dose titration schedule (drug-naive patients must start with 0.25 mg starting dose)",
+          type: "doseProgression",
+          critical: true
         }
       ],
       
       evaluationRules: {
-        starting: ["diagnosis", "age", "labValue", "stepTherapy", "contraindications", "documentation"],
-        maintenance: ["diagnosis", "age", "contraindications", "efficacy", "documentation"]
+        starting: ["diagnosis", "age", "labValue", "stepTherapy", "contraindications", "documentation", "doseProgression"],
+        maintenance: ["diagnosis", "age", "contraindications", "efficacy", "documentation", "doseProgression"]
       },
       
       reauthorizationRequired: "Every 12 months",
@@ -206,13 +216,18 @@ export const drugCoverage = {
         { 
           rule: "Chart documentation includes: diabetes diagnosis, baseline A1C, prior medications with trial dates and outcomes, current weight", 
           type: "documentation"
+        },
+        {
+          rule: "Patient must follow proper dose titration schedule (drug-naive patients must start with 2.5 mg starting dose)",
+          type: "doseProgression",
+          critical: true
         }
       ],
       
       evaluationRules: {
-        starting: ["diagnosis", "age", "labValue", "stepTherapy", "contraindications", "documentation"],
-        titration: ["diagnosis", "age", "contraindications", "documentation"],
-        maintenance: ["diagnosis", "age", "contraindications", "efficacy", "documentation"]
+        starting: ["diagnosis", "age", "labValue", "stepTherapy", "contraindications", "documentation", "doseProgression"],
+        titration: ["diagnosis", "age", "contraindications", "documentation", "doseProgression"],
+        maintenance: ["diagnosis", "age", "contraindications", "efficacy", "documentation", "doseProgression"]
       },
       
       reauthorizationRequired: "Every 12 months",
