@@ -1,5 +1,6 @@
 // coverageEvaluator.js - Real-time PA evaluation for weight-loss medications
 import { evaluatePatientCriteria } from './criteriaEvaluator';
+import { normalizeStatus, CriteriaStatus } from '../constants';
 
 /**
  * Weight-loss drugs database with coverage requirements
@@ -287,10 +288,18 @@ const generateRecommendations = (criteriaResults, drug) => {
  * Generate summary text
  */
 const generateSummary = (coverageStatus, criteriaResults) => {
-  const passCount = criteriaResults.criteriaList.filter(c => c.status === 'pass').length;
-  const totalCount = criteriaResults.criteriaList.length;
-  const warningCount = criteriaResults.criteriaList.filter(c => c.status === 'warning').length;
-  const failCount = criteriaResults.criteriaList.filter(c => c.status === 'fail').length;
+  // Ensure we have a normalized list of criteria results
+  const list = (criteriaResults && criteriaResults.criteriaList) ? criteriaResults.criteriaList : [];
+
+  const normalized = list.map(r => ({
+    ...r,
+    status: normalizeStatus(r.status),
+  }));
+
+  const passCount = normalized.filter(c => c.status === CriteriaStatus.MET).length;
+  const totalCount = normalized.length;
+  const warningCount = normalized.filter(c => c.status === CriteriaStatus.WARNING).length;
+  const failCount = normalized.filter(c => c.status === CriteriaStatus.NOT_MET).length;
 
   let summary = `Patient meets ${passCount} of ${totalCount} criteria`;
   
