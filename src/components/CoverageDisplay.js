@@ -1,198 +1,579 @@
-import React from "react";
-import { getCoverageForDrug, getApplicableCriteria, evaluatePACriteria, statusIcon } from "../utils/coverageLogic";
-import { normalizeStatus, CriteriaStatus } from "../constants";
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Card,
+  CardContent,
+  Typography,
+  LinearProgress,
+  Chip,
+  Alert,
+  Box,
+  Grid,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Button,
+  Tooltip,
+  IconButton,
+  Divider
+} from '@mui/material';
+import {
+  CheckCircle,
+  Cancel,
+  Warning,
+  Info,
+  ExpandMore,
+  Refresh,
+  TrendingUp,
+  Description,
+  Timeline
+} from '@mui/icons-material';
+import { CriteriaStatus, normalizeStatus } from '../constants';
+import { evaluateCoverage } from '../utils/coverageEvaluator';
 
-// StatusIcon component for rendering criterion status
-const StatusIcon = ({ status, rule }) => {
-  return statusIcon(status, rule);
-};
-
-export default function CoverageDisplay({ 
-  insurance, 
-  drugName, 
-  selectedDose, 
-  selectedPatient,
-  drugCoverage,
-  indication
+export function CoverageDisplay({ 
+  patientId, 
+  medication, 
+  dose,
+  onGeneratePA,
+  onCriterionOverride 
 }) {
-   console.log('🎨 CoverageDisplay RENDER START');
-  console.log('Props:', { insurance, drugName, selectedDose, indication, hasPatient: !!selectedPatient });
-  
-  // Don't render until dose is selected
-  if (!selectedDose || !selectedPatient) {
-    console.log('❌ Returning null - missing data');
-    return null;
-  }
-  
-  console.log('✅ Has dose and patient');
+  const [loading, setLoading] = useState(true);
+  const [coverageResult, setCoverageResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [expandedCriteria, setExpandedCriteria] = useState([]);
+  const [overrides, setOverrides] = useState({});
 
-  // Get coverage info
-  let coverage;
-  try {
-    coverage = getCoverageForDrug(drugCoverage, insurance, drugName, indication);
-    console.log('📦 Coverage result:', coverage);
-  } catch (error) {
-    console.error('💥 Error getting coverage:', error);
-    return <div className="p-3 bg-red-100 rounded">Error: {error.message}</div>;
-  }
+  useEffect(() => {
+    evaluateCoverageAsync();
+  }, [patientId, medication, dose]);
 
-  if (!coverage) {
-    console.log('⚠️ No coverage found');
+  const evaluateCoverageAsync = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await evaluateCoverage(patientId, medication, dose);
+      setCoverageResult(result);
+    } catch (err) {
+      console.error('Coverage evaluation failed:', err);
+      setError(err.message || 'Failed to evaluate coverage');
+      setCoverageResult({
+        error: err.message,
+        criteriaResults: [],
+        recommendations: [{
+          priority: 'high',
+          action: 'manual_review',
+          message: 'Automated evaluation failed. Manual review required.'
+        }]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate approval score with confidence weighting
+  const approvalScore = useMemo(() => {
+    if (!coverageResult?.criteriaResults || coverageResult.criteriaResults.length === 0) return 0;
+    
+    const weights = {
+      [CriteriaStatus.MET]: 1,
+      [CriteriaStatus.NOT_MET]: 0,
+      [CriteriaStatus.PARTIALLY_MET]: 0.5,
+      [CriteriaStatus.PENDING_DOCUMENTATION]: 0.3,
+      [CriteriaStatus.NOT_APPLICABLE]: null // Don't count N/A in scoring
+    };
+    
+    let totalScore = 0;
+    let totalWeight = 0;
+    
+    coverageResult.criteriaResults.forEach(result => {
+      const status = normalizeStatus(result.status);
+      const weight = weights[status];
+      
+      if (weight !== null && weight !== undefined) {
+        const confidence = result.confidence || 1;
+        const isRequired = result.required !== false; // Assume required unless explicitly false
+        const criterionWeight = isRequired ? 2 : 1;
+        
+        totalScore += weight * confidence * criterionWeight;
+        totalWeight += criterionWeight;
+      }
+    });
+    
+    return totalWeight > 0 ? Math.round((totalScore / totalWeight) * 100) : 0;
+  }, [coverageResult]);
+
+  // Get status icon
+  const getStatusIcon = (status) => {
+    const normalizedStatus = normalizeStatus(status);
+    switch (normalizedStatus) {
+      case CriteriaStatus.MET:
+        return <CheckCircle color="success" />;
+      case CriteriaStatus.NOT_MET:
+        return <Cancel color="error" />;
+      case CriteriaStatus.PARTIALLY_MET:
+      case CriteriaStatus.PENDING_DOCUMENTATION:
+        return <Warning color="warning" />;
+      case CriteriaStatus.NOT_APPLICABLE:
+        return <Info color="disabled" />;
+      default:
+        return <Info color="disabled" />;
+    }
+  };
+
+  // Get confidence color
+  const getConfidenceColor = (confidence) => {
+    if (!confidence && confidence !== 0) return 'default';
+    if (confidence >= 0.9) return 'success';
+    if (confidence >= 0.7) return 'warning';
+    return 'error';
+  };
+
+  // Get approval score color
+  const getApprovalColor = () => {
+    if (approvalScore >= 80) return 'success.main';
+    if (approvalScore >= 60) return 'warning.main';
+    return 'error.main';
+  };
+
+  // Handle criterion override
+  const handleOverride = (criterionIndex, newStatus, reason) => {
+    setOverrides(prev => ({
+      ...prev,
+      [criterionIndex]: { status: newStatus, reason, timestamp: Date.now() }
+    }));
+    
+    if (onCriterionOverride) {
+      onCriterionOverride(criterionIndex, newStatus, reason);
+    }
+  };
+
+  // Loading state
+  if (loading) {
     return (
-      <div className="p-3 bg-yellow-50 border border-yellow-300 rounded text-yellow-800 mt-4">
-        <strong>⚠️ No coverage information available</strong>
-        <div className="text-sm mt-1">
-          Insurance: {insurance}<br/>
-          Drug: {drugName}
-        </div>
-      </div>
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Evaluating Coverage Criteria...
+          </Typography>
+          <Typography variant="body2" color="textSecondary" gutterBottom>
+            Analyzing patient data against {medication?.name || 'medication'} criteria
+          </Typography>
+          <LinearProgress sx={{ mt: 2 }} />
+        </CardContent>
+      </Card>
     );
   }
 
-  console.log('🎉 Rendering coverage display');
-
-  const patient = selectedPatient;
-  const applicableCriteria = getApplicableCriteria(coverage, selectedDose, patient, drugName);
-
-  // Evaluate each criterion
-  const criteriaEvaluations = applicableCriteria.map(criterion => ({
-    criterion,
-    status: evaluatePACriteria(patient, coverage, selectedDose, criterion, drugName)
-  }));
-
-  const totalCriteria = criteriaEvaluations.length;
-  const metCriteria = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.MET).length;
-  const failedCriteria = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.NOT_MET).length;
-  const notApplicable = criteriaEvaluations.filter(e => normalizeStatus(e.status) === CriteriaStatus.NOT_APPLICABLE).length;
-
-  let approvalLikelihood = 0;
-  let likelihoodColor = 'red';
-  let likelihoodText = 'Low';
-
-  if (totalCriteria > 0) {
-    const applicableCount = totalCriteria - notApplicable;
-    if (applicableCount > 0) {
-      approvalLikelihood = Math.round((metCriteria / applicableCount) * 100);
-
-      if (failedCriteria === 0 && metCriteria === applicableCount) {
-        likelihoodColor = 'green';
-        likelihoodText = 'High';
-      } else if (approvalLikelihood >= 70) {
-        likelihoodColor = 'yellow';
-        likelihoodText = 'Moderate';
-      }
-    }
+  // Error state
+  if (error && !coverageResult) {
+    return (
+      <Card>
+        <CardContent>
+          <Alert 
+            severity="error" 
+            action={
+              <Button color="inherit" size="small" onClick={evaluateCoverageAsync}>
+                <Refresh sx={{ mr: 0.5 }} /> Retry
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
+        </CardContent>
+      </Card>
+    );
   }
 
-  return (
-    <div className="mt-4 border-t pt-4">
-      {/* Coverage Basic Info */}
-      <div className="mb-4 p-3 bg-gray-50 rounded">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div><strong>Tier:</strong> {coverage.tier}</div>
-          <div><strong>Copay:</strong> {coverage.copay}</div>
-          <div>
-            <strong>Prior Auth:</strong>
-            <span className={coverage.paRequired ? "ml-1 text-red-600 font-semibold" : "ml-1 text-green-600"}>
-              {coverage.paRequired ? "Required" : "Not Required"}
-            </span>
-          </div>
-          <div>
-            <strong>Preferred:</strong>
-            <span className={coverage.preferred ? "ml-1 text-green-600 font-semibold" : "ml-1 text-gray-600"}>
-              {coverage.preferred ? "Yes" : "No"}
-            </span>
-          </div>
-        </div>
-      </div>
+  if (!coverageResult) {
+    return null;
+  }
 
-      {/* Approval Likelihood Badge */}
-      {coverage.paRequired && applicableCriteria.length > 0 && (
-        <div className={`mb-4 p-4 rounded-lg border-2 ${
-          likelihoodColor === 'green' ? 'bg-green-50 border-green-400' :
-          likelihoodColor === 'yellow' ? 'bg-yellow-50 border-yellow-400' :
-          'bg-red-50 border-red-400'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold text-gray-700">PA Approval Likelihood</div>
-               <div className={`text-2xl font-bold ${
-                 likelihoodColor === 'green' ? 'text-green-700' :
-                 likelihoodColor === 'yellow' ? 'text-yellow-700' :
-                 'text-red-700'
-               }`}>
-                {likelihoodText} ({approvalLikelihood}%)
-              </div>
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              <div>{metCriteria} of {totalCriteria - notApplicable} criteria met</div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* PA Criteria */}
-      {coverage.paCriteria && applicableCriteria.length > 0 && (
-        <>
-          <div className="mb-2">
-            <div className="font-bold text-gray-900">Prior Authorization Criteria:</div>
-            {coverage.preferred && (
-              <div className="text-sm text-green-700 font-semibold">✓ Preferred weight loss agent</div>
-            )}
-          </div>
+  const { criteriaResults = [], summary, recommendations = [] } = coverageResult;
+
+  return (
+    <Box>
+      {/* Summary Card with Score */}
+      <Card sx={{ mb: 3, borderTop: `4px solid`, borderColor: getApprovalColor() }}>
+        <CardContent>
+          <Grid container spacing={3} alignItems="center">
+            <Grid item xs={12} md={7}>
+              <Typography variant="h5" gutterBottom>
+                Prior Authorization Assessment
+              </Typography>
+              <Typography color="textSecondary" gutterBottom>
+                {medication?.name} - {dose}
+              </Typography>
+              {summary && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {summary}
+                </Typography>
+              )}
+              
+              {/* Quick Stats */}
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip 
+                  size="small" 
+                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.MET).length} Met`}
+                  color="success"
+                  variant="outlined"
+                />
+                <Chip 
+                  size="small" 
+                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.NOT_MET).length} Not Met`}
+                  color="error"
+                  variant="outlined"
+                />
+                <Chip 
+                  size="small" 
+                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.PENDING_DOCUMENTATION).length} Pending`}
+                  color="warning"
+                  variant="outlined"
+                />
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={5}>
+              <Box display="flex" alignItems="center" justifyContent="flex-end" gap={2}>
+                <Box textAlign="center">
+                  <Typography 
+                    variant="h2" 
+                    color={getApprovalColor()}
+                    sx={{ fontWeight: 'bold' }}
+                  >
+                    {approvalScore}%
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Approval Likelihood
+                  </Typography>
+                </Box>
+                
+                <Box>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Description />}
+                    onClick={() => onGeneratePA && onGeneratePA(coverageResult)}
+                    disabled={!onGeneratePA || approvalScore < 30}
+                    sx={{ mb: 1 }}
+                  >
+                    Generate PA
+                  </Button>
+                  <IconButton 
+                    size="small" 
+                    onClick={evaluateCoverageAsync}
+                    sx={{ display: 'block', mx: 'auto' }}
+                  >
+                    <Refresh />
+                  </IconButton>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
           
-          <ul className="list-none ml-0 space-y-2">
-            {criteriaEvaluations.map((evalItem, i) => {
-              const { criterion, status } = evalItem;
-              return (
-                <li key={i} className="flex items-start p-2 rounded hover:bg-gray-50">
-                  <span className="mr-2 mt-0.5 flex-shrink-0">
-                    <StatusIcon status={status} rule={criterion.rule} />
-                  </span>
-                  <span className="flex-1 text-gray-800">{criterion.rule}</span>
+          {/* Progress Bar */}
+          <Box mt={3}>
+            <LinearProgress 
+              variant="determinate" 
+              value={approvalScore}
+              sx={{ 
+                height: 10, 
+                borderRadius: 5,
+                backgroundColor: 'grey.200',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 5,
+                  background: approvalScore >= 80 
+                    ? 'linear-gradient(90deg, #4caf50, #66bb6a)'
+                    : approvalScore >= 60
+                    ? 'linear-gradient(90deg, #ff9800, #ffb74d)'
+                    : 'linear-gradient(90deg, #f44336, #ef5350)'
+                }
+              }}
+            />
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* High Priority Recommendations */}
+      {recommendations.filter(r => r.priority === 'high').length > 0 && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 3 }}
+          icon={<Warning />}
+        >
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+            Action Required:
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2 }}>
+            {recommendations
+              .filter(r => r.priority === 'high')
+              .slice(0, 3)
+              .map((rec, idx) => (
+                <li key={idx}>
+                  <Typography variant="body2">{rec.message}</Typography>
+                  {rec.steps && (
+                    <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                      {rec.steps.slice(0, 2).map((step, stepIdx) => (
+                        <li key={stepIdx}>
+                          <Typography variant="caption" color="textSecondary">
+                            {step}
+                          </Typography>
+                        </li>
+                      ))}
+                    </Box>
+                  )}
                 </li>
+              ))
+            }
+          </Box>
+        </Alert>
+      )}
+
+      {/* Criteria Details */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Criteria Evaluation Details
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          {criteriaResults.length === 0 ? (
+            <Alert severity="info">
+              No criteria results available. Please check the medication configuration.
+            </Alert>
+          ) : (
+            criteriaResults.map((result, index) => {
+              const isExpanded = expandedCriteria.includes(index);
+              const overridden = overrides[index];
+              const effectiveStatus = overridden?.status || normalizeStatus(result.status);
+              
+              return (
+                <Accordion
+                  key={index}
+                  expanded={isExpanded}
+                  onChange={(_, expanded) => {
+                    setExpandedCriteria(prev =>
+                      expanded 
+                        ? [...prev, index]
+                        : prev.filter(i => i !== index)
+                    );
+                  }}
+                  sx={{ 
+                    mb: 1,
+                    border: overridden ? '2px solid orange' : 'none',
+                    '&:before': { display: 'none' }
+                  }}
+                >
+                  <AccordionSummary 
+                    expandIcon={<ExpandMore />}
+                    sx={{ 
+                      '& .MuiAccordionSummary-content': { 
+                        alignItems: 'center' 
+                      }
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" width="100%" gap={2}>
+                      <Box sx={{ flexShrink: 0 }}>
+                        {getStatusIcon(effectiveStatus)}
+                      </Box>
+                      
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="subtitle1">
+                          {result.criterion}
+                          {result.required !== false && (
+                            <Chip 
+                              label="Required" 
+                              size="small" 
+                              color="primary" 
+                              sx={{ ml: 1, height: 20 }}
+                            />
+                          )}
+                          {overridden && (
+                            <Chip 
+                              label="Overridden" 
+                              size="small" 
+                              color="warning" 
+                              sx={{ ml: 1, height: 20 }}
+                            />
+                          )}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {result.displayValue || 'No value'}
+                        </Typography>
+                      </Box>
+                      
+                      {result.confidence !== undefined && (
+                        <Tooltip title="Data confidence level">
+                          <Chip
+                            label={`${Math.round((result.confidence || 0) * 100)}%`}
+                            size="small"
+                            color={getConfidenceColor(result.confidence)}
+                            variant="outlined"
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </AccordionSummary>
+                  
+                  <AccordionDetails>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={8}>
+                        {/* Reason */}
+                        <Typography variant="body2" paragraph>
+                          {result.reason}
+                        </Typography>
+                        
+                        {/* Evidence & Warnings */}
+                        {result.evidence && result.evidence.length > 0 && (
+                          <Box mb={2}>
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                              Evidence & Data Quality:
+                            </Typography>
+                            {result.evidence.map((item, idx) => (
+                              <Alert 
+                                key={idx} 
+                                severity={item.type || 'info'} 
+                                sx={{ mb: 1 }}
+                                icon={
+                                  item.type === 'warning' ? <Warning /> :
+                                  item.type === 'error' ? <Cancel /> :
+                                  <Info />
+                                }
+                              >
+                                {item.message}
+                              </Alert>
+                            ))}
+                          </Box>
+                        )}
+                        
+                        {/* Details */}
+                        {result.details && Object.keys(result.details).length > 0 && (
+                          <Box mb={2}>
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                              Details:
+                            </Typography>
+                            <Box sx={{ 
+                              bgcolor: 'grey.50', 
+                              p: 1.5, 
+                              borderRadius: 1,
+                              fontFamily: 'monospace',
+                              fontSize: '0.875rem'
+                            }}>
+                              {Object.entries(result.details).map(([key, value]) => (
+                                <div key={key}>
+                                  <strong>{key}:</strong> {JSON.stringify(value)}
+                                </div>
+                              ))}
+                            </Box>
+                          </Box>
+                        )}
+                        
+                        {/* Recommendation */}
+                        {result.recommendation && (
+                          <Alert severity="info" icon={<TrendingUp />}>
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                              Recommendation:
+                            </Typography>
+                            <Typography variant="body2" paragraph>
+                              {result.recommendation.message}
+                            </Typography>
+                            {result.recommendation.steps && (
+                              <Box component="ol" sx={{ m: 0, pl: 2 }}>
+                                {result.recommendation.steps.map((step, idx) => (
+                                  <li key={idx}>
+                                    <Typography variant="body2">{step}</Typography>
+                                  </li>
+                                ))}
+                              </Box>
+                            )}
+                          </Alert>
+                        )}
+                      </Grid>
+                      
+                      {/* Override Controls */}
+                      {onCriterionOverride && (
+                        <Grid item xs={12} md={4}>
+                          <Box 
+                            sx={{ 
+                              p: 2, 
+                              bgcolor: 'background.default', 
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                              Clinical Override:
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              fullWidth
+                              onClick={() => handleOverride(index, CriteriaStatus.MET, 'Clinical judgment')}
+                              disabled={effectiveStatus === CriteriaStatus.MET}
+                              sx={{ mb: 1 }}
+                            >
+                              Mark as Met
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              fullWidth
+                              onClick={() => handleOverride(index, CriteriaStatus.NOT_APPLICABLE, 'Not applicable')}
+                              disabled={effectiveStatus === CriteriaStatus.NOT_APPLICABLE}
+                              sx={{ mb: 1 }}
+                            >
+                              Mark as N/A
+                            </Button>
+                            {overridden && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                fullWidth
+                                color="warning"
+                                onClick={() => {
+                                  const newOverrides = { ...overrides };
+                                  delete newOverrides[index];
+                                  setOverrides(newOverrides);
+                                }}
+                              >
+                                Remove Override
+                              </Button>
+                            )}
+                          </Box>
+                        </Grid>
+                      )}
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
               );
-            })}
-          </ul>
-          
-          {/* Approval/Denial Messages */}
-          {failedCriteria > 0 && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 rounded">
-              <div className="flex items-start gap-2">
-                <span className="text-red-600 text-xl">⚠️</span>
-                <div>
-                  <div className="font-bold text-red-800">Coverage Likely to be Denied</div>
-                  <div className="text-sm text-red-700 mt-1">
-                    Patient does not meet {failedCriteria} required {failedCriteria === 1 ? 'criterion' : 'criteria'}. 
-                    Address missing requirements before submitting PA.
-                  </div>
-                </div>
-              </div>
-            </div>
+            })
           )}
-          
-          {failedCriteria === 0 && metCriteria === (totalCriteria - notApplicable) && (
-            <div className="mt-4 p-3 bg-green-100 border border-green-400 rounded">
-              <div className="flex items-start gap-2">
-                <span className="text-green-600 text-xl">✓</span>
-                <div>
-                  <div className="font-bold text-green-800">All Criteria Met</div>
-                  <div className="text-sm text-green-700 mt-1">
-                    Patient meets all PA requirements for {selectedDose}. Proceed with prior authorization submission.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+        </CardContent>
+      </Card>
+
+      {/* Additional Recommendations */}
+      {recommendations.filter(r => r.priority !== 'high').length > 0 && (
+        <Card sx={{ mt: 2 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Additional Recommendations
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            {recommendations
+              .filter(r => r.priority !== 'high')
+              .map((rec, index) => (
+                <Alert 
+                  key={index} 
+                  severity="info"
+                  sx={{ mb: 1 }}
+                >
+                  {rec.message}
+                </Alert>
+              ))
+            }
+          </CardContent>
+        </Card>
       )}
-      
-      {/* Note */}
-      {coverage.note && (
-        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
-          <strong>Note:</strong> {coverage.note}
-        </div>
-      )}
-    </div>
+    </Box>
   );
 }
