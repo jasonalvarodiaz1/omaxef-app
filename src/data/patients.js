@@ -2,7 +2,7 @@ export const patients = [
   {
     id: "p1",
     name: "Maria Gomez",
-    insurance: "Medicare",
+    insurance: "Medicare Part D",
     age: 72,
     gender: "female",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Dyslipidemia", "Obesity"],

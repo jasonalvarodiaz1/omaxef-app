@@ -13,6 +13,8 @@ function TherapyModalContent({
   setSelectedDrugId,
   selectedDose,
   setSelectedDose,
+  selectedIndication,
+  setSelectedIndication,
   therapySubmitted,
   setTherapySubmitted,
   paFormOpen,
@@ -43,6 +45,7 @@ function TherapyModalContent({
             setTherapyModalOpen(false);
             setDrugSearch("");
             setSelectedDrugId(null);
+            setSelectedIndication("");
             setTherapySubmitted(false);
           }}
           aria-label="Close therapy modal"
@@ -69,6 +72,7 @@ function TherapyModalContent({
                     setSelectedDrugId(drug.id);
                     setTherapySubmitted(false);
                     setSelectedDose("");
+                    setSelectedIndication("");
                     setDrugSearch(drug.name);
                   }}
                 >
@@ -78,8 +82,71 @@ function TherapyModalContent({
               ))}
             </ul>
           )}
+
+          {/* Indication selection for drugs with multiple uses */}
+          {selectedDrugId && selectedDrug && (
+            <div className="mb-4">
+              <label className="block font-semibold mb-2">Indication / Reason for Prescription:</label>
+              <div className="space-y-2">
+                {/* Check if this is a dual-indication drug */}
+                {(selectedDrug.name === "Ozempic" || selectedDrug.name === "Mounjaro") && (
+                  <>
+                    <label className="flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
+                      <input
+                        type="radio"
+                        name="indication"
+                        value="diabetes"
+                        checked={selectedIndication === "diabetes"}
+                        onChange={e => setSelectedIndication(e.target.value)}
+                        className="mr-3 w-5 h-5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-900">Type 2 Diabetes Mellitus</div>
+                        <div className="text-sm text-gray-600">Primary indication - Glycemic control</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
+                      <input
+                        type="radio"
+                        name="indication"
+                        value="weight_loss"
+                        checked={selectedIndication === "weight_loss"}
+                        onChange={e => setSelectedIndication(e.target.value)}
+                        className="mr-3 w-5 h-5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-900">Chronic Weight Management</div>
+                        <div className="text-sm text-gray-600">Off-label use - May not be covered</div>
+                      </div>
+                    </label>
+                  </>
+                )}
+                
+                {/* Weight-loss only drugs */}
+                {(selectedDrug.name === "Wegovy" || selectedDrug.name === "Zepbound" || selectedDrug.name === "Saxenda") && (
+                  <div className="p-3 border-2 border-blue-500 rounded-lg bg-blue-50">
+                    <div className="flex items-start">
+                      <input
+                        type="radio"
+                        name="indication"
+                        value="weight_loss"
+                        checked={true}
+                        readOnly
+                        className="mr-3 mt-1 w-5 h-5"
+                      />
+                      <div className="flex-1">
+                        <div className="font-bold text-gray-900">Chronic Weight Management</div>
+                        <div className="text-sm text-gray-600">FDA-approved indication for obesity</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Dose selection for selected drug */}
-          {selectedDrugId && (
+          {selectedDrugId && selectedIndication && (
             <div className="mb-4">
               <label className="block font-semibold mb-2">Select Dose:</label>
               <select
@@ -118,6 +185,7 @@ function TherapyModalContent({
                 selectedDose={selectedDose}
                 selectedPatient={patient}
                 drugCoverage={drugCoverage}
+                indication={selectedIndication}
               />
               {/* PA Button logic: only show after dose is selected and PA is required */}
               {selectedDose && coverage && coverage.paRequired && !therapySubmitted && !paFormOpen && !paFormSubmitted && (
@@ -209,6 +277,7 @@ export default function TherapyModal({
   // Get patient from parent component props (passed down from App)
   const patient = window.__selectedPatient || null;
   const [coverageError, setCoverageError] = useState(null);
+  const [selectedIndication, setSelectedIndication] = useState("");
   
   const filteredDrugs = allDrugs.filter(drug =>
     drug.name.toLowerCase().includes(drugSearch.toLowerCase()) ||
@@ -216,6 +285,16 @@ export default function TherapyModal({
   );
 
   const selectedDrug = allDrugs.find(d => d.id === selectedDrugId);
+  
+  // Auto-set indication for weight-loss only drugs
+  useEffect(() => {
+    if (selectedDrug && (selectedDrug.name === "Wegovy" || selectedDrug.name === "Zepbound" || selectedDrug.name === "Saxenda")) {
+      setSelectedIndication("weight_loss");
+    } else if (selectedDrug && selectedIndication === "") {
+      // Reset indication when switching drugs
+      setSelectedIndication("");
+    }
+  }, [selectedDrug, selectedIndication]);
   
   const coverage = useMemo(() => {
     if (!patient || !selectedDrug) {
@@ -263,6 +342,8 @@ export default function TherapyModal({
       setSelectedDrugId={setSelectedDrugId}
       selectedDose={selectedDose}
       setSelectedDose={setSelectedDose}
+      selectedIndication={selectedIndication}
+      setSelectedIndication={setSelectedIndication}
       therapySubmitted={therapySubmitted}
       setTherapySubmitted={setTherapySubmitted}
       paFormOpen={paFormOpen}

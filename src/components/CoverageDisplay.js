@@ -12,10 +12,11 @@ export default function CoverageDisplay({
   drugName, 
   selectedDose, 
   selectedPatient,
-  drugCoverage 
+  drugCoverage,
+  indication
 }) {
    console.log('🎨 CoverageDisplay RENDER START');
-  console.log('Props:', { insurance, drugName, selectedDose, hasPatient: !!selectedPatient });
+  console.log('Props:', { insurance, drugName, selectedDose, indication, hasPatient: !!selectedPatient });
   
   // Don't render until dose is selected
   if (!selectedDose || !selectedPatient) {
@@ -28,7 +29,7 @@ export default function CoverageDisplay({
   // Get coverage info
   let coverage;
   try {
-    coverage = getCoverageForDrug(drugCoverage, insurance, drugName);
+    coverage = getCoverageForDrug(drugCoverage, insurance, drugName, indication);
     console.log('📦 Coverage result:', coverage);
   } catch (error) {
     console.error('💥 Error getting coverage:', error);
