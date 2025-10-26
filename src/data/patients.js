@@ -4,6 +4,7 @@ export const patients = [
     name: "Maria Gomez",
     insurance: "Medicare",
     age: 72,
+    gender: "female",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Dyslipidemia", "Obesity"],
     allergies: ["Penicillin", "Sulfa drugs"],
     vitals: {
@@ -43,15 +44,14 @@ export const patients = [
       weightLossPercentage: 0,
       monthsOnMaintenanceDose: 0
     },
-    therapyHistory: [
-      // No prior GLP-1 therapy - patient is naive
-    ]
+    therapyHistory: [] // Never been on GLP-1
   },
   {
     id: "p2",
     name: "James Lee",
     insurance: "Medicaid",
     age: 58,
+    gender: "male",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Obesity"],
     allergies: [],
     vitals: {
@@ -91,15 +91,14 @@ export const patients = [
       weightLossPercentage: 0,
       monthsOnMaintenanceDose: 0
     },
-    therapyHistory: [
-      // No prior GLP-1 therapy - patient is naive
-    ]
+    therapyHistory: [] // Never been on GLP-1
   },
   {
     id: "p3",
     name: "Ella Smith",
     insurance: "CVS Health (Aetna)",
     age: 44,
+    gender: "female",
     diagnosis: ["Generalized Anxiety Disorder"],
     allergies: ["None"],
     vitals: {
@@ -133,15 +132,14 @@ export const patients = [
       weightLossPercentage: 0,
       monthsOnMaintenanceDose: 0
     },
-    therapyHistory: [
-      // No prior therapy
-    ]
+    therapyHistory: [] // Never been on GLP-1
   },
   {
     id: "p4",
     name: "Andre Patel",
     insurance: "CVS Health (Aetna)",
     age: 61,
+    gender: "male",
     diagnosis: ["Type 2 Diabetes", "Dyslipidemia", "Obesity"],
     allergies: ["Aspirin"],
     vitals: {
@@ -181,15 +179,14 @@ export const patients = [
       weightLossPercentage: 0,
       monthsOnMaintenanceDose: 0
     },
-    therapyHistory: [
-      // No prior GLP-1 therapy - patient is naive
-    ]
+    therapyHistory: [] // GLP-1 NAIVE - Never been on any GLP-1
   },
   {
     id: "p5",
     name: "Sarah Johnson",
     insurance: "CVS Health (Aetna)",
     age: 52,
+    gender: "female",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Obesity"],
     allergies: [],
     vitals: {
@@ -226,11 +223,10 @@ export const patients = [
       hasWeightProgram: true,
       baselineWeight: { value: 103, units: "kg", date: "2024-04-01" },
       currentWeight: { value: 98, units: "kg", date: "2024-10-01" },
-      // Weight loss tracking
-      initialWeightLossPercentage: 5.8,  // Peak weight loss achieved (6kg = 5.8%)
+      initialWeightLossPercentage: 5.8,  // Peak weight loss (6kg from 103kg)
       currentWeightLossPercentage: 4.9,   // Current sustained weight loss
-      weightMaintenanceMonths: 2,         // Months maintaining current weight
-      weightLossPercentage: 4.9,          // Backward compatibility
+      weightMaintenanceMonths: 2,
+      weightLossPercentage: 4.9,
       monthsOnMaintenanceDose: 2
     },
     therapyHistory: [
@@ -250,12 +246,11 @@ export const patients = [
         weightAtStart: { value: 103, units: "kg" },
         currentWeight: { value: 98, units: "kg" },
         weightLossAchieved: 4.9,
-        // Administrative tracking
         initialApprovalDate: "2024-04-01",
         lastRefillDate: "2024-10-01",
         nextRefillDue: "2024-11-01",
         paStatus: "approved",
-        paExpirationDate: "2025-04-01",  // PA valid for 1 year
+        paExpirationDate: "2025-04-01",  // PA expires - needs reauth
         prescribingProvider: "Dr. Smith",
         pharmacy: "CVS Pharmacy #1234"
       }

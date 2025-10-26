@@ -103,4 +103,51 @@ describe('criteriaEvaluator', () => {
       expect(result.hasComorbidity).toBe(false);
     });
   });
+
+  describe('evaluateDoseProgression', () => {
+    test('drug-naive patient: returns NOT_MET when requesting non-starting dose', () => {
+      const patient = {
+        therapyHistory: [] // No history with Wegovy
+      };
+      const criterion = { type: 'doseProgression' };
+      const drug = {
+        doseSchedule: [
+          { value: "0.25 mg", phase: "starting", duration: "Month 1" },
+          { value: "0.5 mg", phase: "titration", duration: "Month 2" },
+          { value: "1.7 mg", phase: "titration", duration: "Month 4" },
+          { value: "2.4 mg", phase: "maintenance", duration: "Month 5+" }
+        ]
+      };
+      const dose = '1.7 mg'; // Requesting titration dose
+      const drugName = 'Wegovy';
+
+      const result = evaluateCriterion(patient, criterion, drug, dose, drugName);
+
+      expect(result.status).toBe(CriteriaStatus.NOT_MET);
+      expect(result.criterionType).toBe('doseProgression');
+      expect(result.displayValue).toBe('No prior therapy');
+    });
+
+    test('drug-naive patient: returns MET when requesting starting dose', () => {
+      const patient = {
+        therapyHistory: [] // No history with Wegovy
+      };
+      const criterion = { type: 'doseProgression' };
+      const drug = {
+        doseSchedule: [
+          { value: "0.25 mg", phase: "starting", duration: "Month 1" },
+          { value: "0.5 mg", phase: "titration", duration: "Month 2" },
+          { value: "1.7 mg", phase: "titration", duration: "Month 4" }
+        ]
+      };
+      const dose = '0.25 mg'; // Requesting starting dose
+      const drugName = 'Wegovy';
+
+      const result = evaluateCriterion(patient, criterion, drug, dose, drugName);
+
+      expect(result.status).toBe(CriteriaStatus.MET);
+      expect(result.criterionType).toBe('doseProgression');
+      expect(result.displayValue).toBe('Drug naive');
+    });
+  });
 });

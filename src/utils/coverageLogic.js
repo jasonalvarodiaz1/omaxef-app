@@ -77,9 +77,12 @@ export function evaluatePACriteriaDetailed(patient, drug, dose, criterion, drugN
 
 // Helper function for dose info (used by evaluator)
 export function getDoseInfo(drug, dose) {
+  // Normalize dose to string for consistent comparison
+  const normalizedDose = String(dose);
+  
   // Check if drug has doseSchedule (new structure)
   if (drug.doseSchedule) {
-    const doseInfo = drug.doseSchedule.find(d => d.value === dose);
+    const doseInfo = drug.doseSchedule.find(d => String(d.value) === normalizedDose);
     if (doseInfo) {
       return {
         isStartingDose: doseInfo.phase === "starting",
@@ -93,7 +96,7 @@ export function getDoseInfo(drug, dose) {
   
   // Fallback to old startingDoses array (for backward compatibility)
   if (drug.startingDoses) {
-    const isStartingDose = drug.startingDoses.includes(dose);
+    const isStartingDose = drug.startingDoses.some(d => String(d) === normalizedDose);
     return {
       isStartingDose,
       isTitrationDose: false,

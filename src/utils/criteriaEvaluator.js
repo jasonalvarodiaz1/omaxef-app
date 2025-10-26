@@ -5,221 +5,220 @@ export const evaluateCriterion = (patient, criterion, drug, dose, drugName) => {
   const doseInfo = getDoseInfo(drug, dose);
   
   // If criterion doesn't apply to this dose phase, mark as N/A
-  if (criterion.appliesTo && !criterion.appliesTo.includes(doseInfo.doseType)) {
-    return { 
-      status: CriteriaStatus.NOT_APPLICABLE, 
-      reason: 'Not required for this dose phase',
-      displayValue: 'N/A',
-      criterionType: criterion.type
-    };
-  }
-  
-  switch (criterion.type) {
-    case 'age':
-      return evaluateAge(patient, criterion);
-      
-    case 'bmi':
-      return evaluateBMI(patient, criterion);
-      
-    case 'diagnosis':
-      return evaluateDiagnosis(patient, criterion);
-      
-    case 'labValue':
-      return evaluateLabValue(patient, criterion);
-      
-    case 'lifestyleModification':
-      return evaluateLifestyleModification(patient, criterion);
-      
-    case 'priorTherapies':
-      return evaluatePriorTherapies(patient, criterion);
-      
-    case 'stepTherapy':
-      return evaluateStepTherapy(patient, criterion);
-      
-    case 'prescriberQualification':
-      return evaluatePrescriberQualification(patient, criterion);
-      
-    case 'contraindications':
-      return evaluateContraindications(patient, criterion);
-      
-    case 'doseProgression':
-      return evaluateDoseProgression(patient, drug, dose, drugName, doseInfo);
-      
-    case 'weightLoss':
-      return evaluateWeightLoss(patient, criterion, doseInfo);
-      
-    case 'weightMaintained':
-      return evaluateWeightMaintained(patient, criterion, doseInfo);
-      
-    case 'efficacy':
-      return evaluateEfficacy(patient, criterion, doseInfo);
-      
-    case 'cvdRisk':
-      return evaluateCVDRisk(patient, criterion);
-      
-    case 'documentation':
-      return evaluateDocumentation(patient, criterion);
-      
-    default:
+    if (criterion.appliesTo && !criterion.appliesTo.includes(doseInfo.doseType)) {
       return { 
-        status: 'unknown', 
-        reason: `Unknown criterion type: ${criterion.type}`,
-        displayValue: '?',
+        status: CriteriaStatus.NOT_APPLICABLE, 
+        reason: 'Not required for this dose phase',
+        displayValue: 'N/A',
         criterionType: criterion.type
       };
-  }
-};
+    }
+    switch (criterion.type) {
+      case 'age':
+        return evaluateAge(patient, criterion);
 
-// Individual criterion evaluators
+      case 'bmi':
+        return evaluateBMI(patient, criterion);
 
-function evaluateAge(patient, criterion) {
-  const age = patient.age;
-  const minAge = criterion.minAge || 18;
-  const met = age >= minAge;
-  
-  return {
-    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
-    criterionType: 'age',
-    value: age,
-    displayValue: `${age} years`,
-    requirement: `≥${minAge} years`,
-    reason: met ? `Patient is ${age} years old` : `Patient is ${age} years old (requires ≥${minAge})`,
-    critical: criterion.critical || false
+      case 'diagnosis':
+        return evaluateDiagnosis(patient, criterion);
+
+      case 'labValue':
+        return evaluateLabValue(patient, criterion);
+
+      case 'lifestyleModification':
+        return evaluateLifestyleModification(patient, criterion);
+
+      case 'priorTherapies':
+        return evaluatePriorTherapies(patient, criterion);
+
+      case 'stepTherapy':
+        return evaluateStepTherapy(patient, criterion);
+
+      case 'prescriberQualification':
+        return evaluatePrescriberQualification(patient, criterion);
+
+      case 'contraindications':
+        return evaluateContraindications(patient, criterion);
+
+      case 'doseProgression':
+        return evaluateDoseProgression(patient, drug, dose, drugName, doseInfo);
+
+      case 'weightLoss':
+        return evaluateWeightLoss(patient, criterion, doseInfo);
+
+      case 'weightMaintained':
+        return evaluateWeightMaintained(patient, criterion, doseInfo);
+
+      case 'efficacy':
+        return evaluateEfficacy(patient, criterion, doseInfo);
+
+      case 'cvdRisk':
+        return evaluateCVDRisk(patient, criterion);
+
+      case 'documentation':
+        return evaluateDocumentation(patient, criterion);
+
+      default:
+        return { 
+          status: 'unknown', 
+          reason: `Unknown criterion type: ${criterion.type}`,
+          displayValue: '?',
+          criterionType: criterion.type
+        };
+    }
   };
-}
 
-function evaluateBMI(patient, criterion) {
-  const bmi = patient.vitals?.bmi || 0;
-  const cardioComorbidities = ["Type 2 Diabetes", "Hypertension", "Dyslipidemia", "Obstructive Sleep Apnea", "Cardiovascular Disease"];
-  const hasComorbidity = cardioComorbidities.some(cond => 
-    patient.diagnosis?.includes(cond) || patient.diagnosis?.some(d => d.includes(cond))
-  );
-  
-  let met = false;
-  let reason = '';
-  
-  if (bmi >= 30) {
-    met = true;
-    reason = `BMI ${bmi.toFixed(1)} ≥ 30 kg/m²`;
-  } else if (bmi >= 27 && hasComorbidity) {
-    met = true;
-    const comorbidityList = cardioComorbidities.filter(c => 
-      patient.diagnosis?.includes(c) || patient.diagnosis?.some(d => d.includes(c))
-    ).join(', ');
-    reason = `BMI ${bmi.toFixed(1)} ≥ 27 kg/m² with comorbidity (${comorbidityList})`;
-  } else if (bmi >= 27 && !hasComorbidity) {
-    reason = `BMI ${bmi.toFixed(1)} ≥ 27 kg/m² but missing required weight-related comorbidity`;
-  } else {
-    reason = `BMI ${bmi.toFixed(1)} does not meet criteria (requires ≥30, or ≥27 with comorbidity)`;
-  }
-  
-  return {
-    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
-    criterionType: 'bmi',
-    value: bmi,
-    displayValue: `${bmi.toFixed(1)}`,
-    requirement: '≥30, or ≥27 with comorbidity',
-    reason,
-    hasComorbidity,
-    critical: criterion.critical || false
-  };
-}
+  // Individual criterion evaluators
 
-function evaluateDiagnosis(patient, criterion) {
-  const requiredDiagnosis = criterion.requiredDiagnosis;
-  const hasDiagnosis = patient.diagnosis?.some(d => 
-    d.includes(requiredDiagnosis) || d.toLowerCase().includes(requiredDiagnosis.toLowerCase())
-  );
+  function evaluateAge(patient, criterion) {
+    const age = patient.age;
+    const minAge = criterion.minAge || 18;
+    const met = age >= minAge;
   
-  return {
-    status: hasDiagnosis ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
-    criterionType: 'diagnosis',
-    value: hasDiagnosis,
-    displayValue: hasDiagnosis ? 'Yes' : 'No',
-    requirement: `${requiredDiagnosis} diagnosis`,
-    reason: hasDiagnosis 
-      ? `Patient has documented ${requiredDiagnosis} diagnosis`
-      : `Missing required ${requiredDiagnosis} diagnosis`,
-    critical: criterion.critical || false
-  };
-}
-
-function evaluateLabValue(patient, criterion) {
-  const labName = criterion.labName;
-  const minValue = criterion.minValue;
-  
-  // Try to find lab value
-  let labValue = null;
-  if (patient.labs?.[labName.toLowerCase()]) {
-    labValue = patient.labs[labName.toLowerCase()].value;
-  } else if (patient.labs?.[labName]) {
-    labValue = patient.labs[labName].value;
-  }
-  
-  if (labValue === null) {
     return {
-      status: CriteriaStatus.NOT_MET,
+      status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+      criterionType: 'age',
+      value: age,
+      displayValue: `${age} years`,
+      requirement: `≥${minAge} years`,
+      reason: met ? `Patient is ${age} years old` : `Patient is ${age} years old (requires ≥${minAge})`,
+      critical: criterion.critical || false
+    };
+  }
+
+  function evaluateBMI(patient, criterion) {
+    const bmi = patient.vitals?.bmi || 0;
+    const cardioComorbidities = ["Type 2 Diabetes", "Hypertension", "Dyslipidemia", "Obstructive Sleep Apnea", "Cardiovascular Disease"];
+    const hasComorbidity = cardioComorbidities.some(cond => 
+      patient.diagnosis?.includes(cond) || patient.diagnosis?.some(d => d.includes(cond))
+    );
+  
+    let met = false;
+    let reason = '';
+  
+    if (bmi >= 30) {
+      met = true;
+      reason = `BMI ${bmi.toFixed(1)} ≥ 30 kg/m²`;
+    } else if (bmi >= 27 && hasComorbidity) {
+      met = true;
+      const comorbidityList = cardioComorbidities.filter(c => 
+        patient.diagnosis?.includes(c) || patient.diagnosis?.some(d => d.includes(c))
+      ).join(', ');
+      reason = `BMI ${bmi.toFixed(1)} ≥ 27 kg/m² with comorbidity (${comorbidityList})`;
+    } else if (bmi >= 27 && !hasComorbidity) {
+      reason = `BMI ${bmi.toFixed(1)} ≥ 27 kg/m² but missing required weight-related comorbidity`;
+    } else {
+      reason = `BMI ${bmi.toFixed(1)} does not meet criteria (requires ≥30, or ≥27 with comorbidity)`;
+    }
+  
+    return {
+      status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+      criterionType: 'bmi',
+      value: bmi,
+      displayValue: `${bmi.toFixed(1)}`,
+      requirement: '≥30, or ≥27 with comorbidity',
+      reason,
+      hasComorbidity,
+      critical: criterion.critical || false
+    };
+  }
+
+  function evaluateDiagnosis(patient, criterion) {
+    const requiredDiagnosis = criterion.requiredDiagnosis;
+    const hasDiagnosis = patient.diagnosis?.some(d => 
+      d.includes(requiredDiagnosis) || d.toLowerCase().includes(requiredDiagnosis.toLowerCase())
+    );
+  
+    return {
+      status: hasDiagnosis ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+      criterionType: 'diagnosis',
+      value: hasDiagnosis,
+      displayValue: hasDiagnosis ? 'Yes' : 'No',
+      requirement: `${requiredDiagnosis} diagnosis`,
+      reason: hasDiagnosis 
+        ? `Patient has documented ${requiredDiagnosis} diagnosis`
+        : `Missing required ${requiredDiagnosis} diagnosis`,
+      critical: criterion.critical || false
+    };
+  }
+
+  function evaluateLabValue(patient, criterion) {
+    const labName = criterion.labName;
+    const minValue = criterion.minValue;
+  
+    // Try to find lab value
+    let labValue = null;
+    if (patient.labs?.[labName.toLowerCase()]) {
+      labValue = patient.labs[labName.toLowerCase()].value;
+    } else if (patient.labs?.[labName]) {
+      labValue = patient.labs[labName].value;
+    }
+  
+    if (labValue === null) {
+      return {
+        status: CriteriaStatus.NOT_MET,
+        criterionType: 'labValue',
+        value: null,
+        displayValue: 'Not documented',
+        requirement: `${labName} ≥${minValue}`,
+        reason: `${labName} value not documented in chart`,
+        critical: criterion.critical || false
+      };
+    }
+  
+    const met = labValue >= minValue;
+  
+    return {
+      status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
       criterionType: 'labValue',
-      value: null,
-      displayValue: 'Not documented',
+      value: labValue,
+      displayValue: `${labValue}`,
       requirement: `${labName} ≥${minValue}`,
-      reason: `${labName} value not documented in chart`,
+      reason: met 
+        ? `${labName} is ${labValue} (meets requirement of ≥${minValue})`
+        : `${labName} is ${labValue} (requires ≥${minValue})`,
       critical: criterion.critical || false
     };
   }
-  
-  const met = labValue >= minValue;
-  
-  return {
-    status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
-    criterionType: 'labValue',
-    value: labValue,
-    displayValue: `${labValue}`,
-    requirement: `${labName} ≥${minValue}`,
-    reason: met 
-      ? `${labName} is ${labValue} (meets requirement of ≥${minValue})`
-      : `${labName} is ${labValue} (requires ≥${minValue})`,
-    critical: criterion.critical || false
-  };
-}
 
-function evaluateLifestyleModification(patient, criterion) {
-  const hasProgram = patient.clinicalNotes?.hasWeightProgram || false;
-  const requiredDuration = criterion.requiredDuration || 6;
-  const maxWeightLoss = criterion.maxWeightLoss || 5;
+  function evaluateLifestyleModification(patient, criterion) {
+    const hasProgram = patient.clinicalNotes?.hasWeightProgram || false;
+    const requiredDuration = criterion.requiredDuration || 6;
+    const maxWeightLoss = criterion.maxWeightLoss || 5;
   
-  // Check if patient has documented weight loss
-  const weightLoss = patient.clinicalNotes?.weightLossPercentage || 0;
-  const failedProgram = hasProgram && weightLoss < maxWeightLoss;
+    // Check if patient has documented weight loss
+    const weightLoss = patient.clinicalNotes?.weightLossPercentage || 0;
+    const failedProgram = hasProgram && weightLoss < maxWeightLoss;
   
-  if (!hasProgram) {
+    if (!hasProgram) {
+      return {
+        status: CriteriaStatus.NOT_MET,
+        criterionType: 'lifestyleModification',
+        value: false,
+        displayValue: 'Not documented',
+        requirement: `${requiredDuration} month program`,
+        reason: `No documented participation in lifestyle modification program for ${requiredDuration} months`,
+        critical: criterion.critical || false
+      };
+    }
+  
     return {
-      status: CriteriaStatus.NOT_MET,
+      status: failedProgram ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
       criterionType: 'lifestyleModification',
-      value: false,
-      displayValue: 'Not documented',
-      requirement: `${requiredDuration} month program`,
-      reason: `No documented participation in lifestyle modification program for ${requiredDuration} months`,
+      value: hasProgram,
+      displayValue: hasProgram ? 'Yes' : 'No',
+      requirement: `${requiredDuration} month program with <${maxWeightLoss}% weight loss`,
+      reason: failedProgram
+        ? `Documented ${requiredDuration}+ month lifestyle program with <${maxWeightLoss}% weight loss (${weightLoss.toFixed(1)}%)`
+        : hasProgram 
+          ? `Lifestyle program documented but weight loss ≥${maxWeightLoss}% (${weightLoss.toFixed(1)}%) - may not qualify`
+          : `No lifestyle program documented`,
       critical: criterion.critical || false
     };
   }
-  
-  return {
-    status: failedProgram ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
-    criterionType: 'lifestyleModification',
-    value: hasProgram,
-    displayValue: hasProgram ? 'Yes' : 'No',
-    requirement: `${requiredDuration} month program with <${maxWeightLoss}% weight loss`,
-    reason: failedProgram
-      ? `Documented ${requiredDuration}+ month lifestyle program with <${maxWeightLoss}% weight loss (${weightLoss.toFixed(1)}%)`
-      : hasProgram 
-        ? `Lifestyle program documented but weight loss ≥${maxWeightLoss}% (${weightLoss.toFixed(1)}%) - may not qualify`
-        : `No lifestyle program documented`,
-    critical: criterion.critical || false
-  };
-}
 
-function evaluatePriorTherapies(patient, criterion) {
+  function evaluatePriorTherapies(patient, criterion) {
   const minTrials = criterion.minTrials || 2;
   const therapyHistory = patient.therapyHistory || [];
   const currentMedications = patient.medications || [];
@@ -353,213 +352,100 @@ function evaluateContraindications(patient, criterion) {
 }
 
 function evaluateDoseProgression(patient, drug, requestedDose, drugName, doseInfo) {
-  const drugHistory = patient.therapyHistory?.find(h => h.drug === drugName);
-  const doseSchedule = drug.doseSchedule;
-  
-  if (!doseSchedule) {
-    return { 
-      status: CriteriaStatus.MET, 
-      criterionType: 'doseProgression', 
-      reason: 'No dose schedule defined', 
-      displayValue: 'N/A',
-      critical: false
-    };
-  }
-  
-  // Find requested dose in schedule
-  const requestedDoseIndex = doseSchedule.findIndex(d => d.value === requestedDose);
-  
-  if (requestedDoseIndex === -1) {
-    return {
-      status: CriteriaStatus.NOT_MET,
-      criterionType: 'doseProgression',
-      reason: `${requestedDose} is not a valid dose for ${drugName}`,
-      displayValue: '❌ Invalid dose',
-      critical: true
-    };
-  }
-  
-  const requestedDoseInfo = doseSchedule[requestedDoseIndex];
-  
-  // CASE 1: Patient has NEVER been on this medication (drug naive)
-  if (!drugHistory || drugHistory.status !== "active") {
-    // Must start with starting dose (first dose in schedule)
-    const startingDose = doseSchedule.find(d => d.phase === "starting");
-    
-    if (!startingDose) {
-      // Fallback if no explicit starting phase
-      const firstDose = doseSchedule[0];
-      if (requestedDose === firstDose.value) {
-        return {
-          status: CriteriaStatus.MET,
-          criterionType: 'doseProgression',
-          reason: `Patient is drug-naive. Starting with ${requestedDose} (first dose in schedule) is appropriate.`,
-          displayValue: '✅ Starting dose',
-          critical: false
-        };
-      } else {
-        return {
-          status: CriteriaStatus.NOT_MET,
-          criterionType: 'doseProgression',
-          reason: `Patient has never been on ${drugName}. Must start with ${firstDose.value} (starting dose), not ${requestedDose}.`,
-          displayValue: '❌ Must start at beginning',
-          requiredDose: firstDose.value,
-          critical: true
-        };
-      }
-    }
-    
-    if (requestedDose === startingDose.value) {
-      return {
-        status: CriteriaStatus.MET,
-        criterionType: 'doseProgression',
-        reason: `Patient is drug-naive (never been on ${drugName}). Starting with ${requestedDose} (starting dose) is appropriate.`,
-        displayValue: '✅ Starting dose - Drug naive',
-        critical: false
-      };
-    } else {
+  const drugHistory = patient.therapyHistory?.find(h => String(h.drug).toLowerCase() === String(drugName).toLowerCase());
+
+  // Normalize requestedDose and currentDose comparisons to strings for safety
+  const normalizeValue = v => (v === null || v === undefined) ? null : String(v);
+
+  const requestedDoseNorm = normalizeValue(requestedDose);
+  const currentDoseNorm = normalizeValue(drugHistory?.currentDose);
+
+  if (doseInfo?.isStartingDose) {
+    if (drugHistory && (drugHistory.status === "active" || drugHistory.status === "ongoing")) {
       return {
         status: CriteriaStatus.NOT_MET,
         criterionType: 'doseProgression',
-        reason: `Patient has NEVER been on ${drugName}. Cannot start at ${requestedDose}. Must begin with ${startingDose.value} (starting dose) per titration protocol.`,
-        displayValue: '❌ Cannot skip starting dose',
-        requiredDose: startingDose.value,
-        critical: true
+        reason: `Patient is already on ${drugName}. Cannot restart at starting dose.`,
+        displayValue: 'Cannot restart',
+        currentDose: drugHistory.currentDose
       };
     }
-  }
-  
-  // CASE 2: Patient is CURRENTLY on this medication
-  const currentDose = drugHistory.currentDose;
-  const currentDoseIndex = doseSchedule.findIndex(d => d.value === currentDose);
-  
-  // Check if patient is on max dose
-  const maxDose = doseSchedule[doseSchedule.length - 1];
-  const isOnMaxDose = currentDose === maxDose.value;
-  
-  // CASE 2A: Continuation - requesting SAME dose (refill)
-  if (requestedDose === currentDose) {
-    // Check if PA expired and needs reauthorization
-    const paExpired = drugHistory.paExpirationDate && new Date(drugHistory.paExpirationDate) < new Date();
-    
-    const currentDoseStartDate = drugHistory.doses?.find(d => d.value === currentDose)?.startDate;
-    const dosePhase = doseSchedule[currentDoseIndex]?.phase || 'unknown';
-    
-    if (paExpired) {
-      return {
-        status: CriteriaStatus.MET,
-        criterionType: 'doseProgression',
-        reason: `Continuation of current ${dosePhase} dose ${requestedDose}. PA expired on ${drugHistory.paExpirationDate} - REAUTHORIZATION REQUIRED.`,
-        displayValue: '⚠️ PA Reauth Required',
-        needsReauthorization: true,
-        expirationDate: drugHistory.paExpirationDate,
-        currentDose: currentDose,
-        isMaxDose: isOnMaxDose,
-        critical: false
-      };
-    }
-    
-    let displayText = '✅ Continuation';
-    if (isOnMaxDose) {
-      displayText = '✅ Max dose - Continuation';
-    }
-    
     return {
-      status: 'met',
+      status: CriteriaStatus.MET,
       criterionType: 'doseProgression',
-      reason: `Continuation of current ${dosePhase} dose ${requestedDose}.${isOnMaxDose ? ' Patient is on maximum dose.' : ''} Patient has been on this dose since ${currentDoseStartDate || 'N/A'}.`,
-      displayValue: displayText,
-      currentDose: currentDose,
-      isMaxDose: isOnMaxDose,
-      critical: false
+      reason: 'Patient is naive to this medication',
+      displayValue: 'Drug naive'
     };
   }
-  
-  // CASE 2B: Titration UP - requesting NEXT dose in schedule
+
+  if (!drugHistory) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      criterionType: 'doseProgression',
+      reason: `Patient has no history with ${drugName}. Must start at starting dose.`,
+      displayValue: 'No prior therapy'
+    };
+  }
+
+  const doseSchedule = drug?.doseSchedule || [];
+  if (!Array.isArray(doseSchedule) || doseSchedule.length === 0) {
+    return { status: CriteriaStatus.MET, criterionType: 'doseProgression', reason: 'No dose schedule defined', displayValue: 'N/A' };
+  }
+
+  // Map schedule values to strings for robust comparison
+  const scheduleValues = doseSchedule.map(d => String(d.value));
+  const requestedDoseIndex = scheduleValues.indexOf(requestedDoseNorm);
+  const currentDoseIndex = scheduleValues.indexOf(currentDoseNorm);
+
+  // If either dose isn't recognized in the schedule, mark NOT_MET (defensive)
+  if (requestedDoseIndex === -1 || currentDoseIndex === -1) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      criterionType: 'doseProgression',
+      reason: `Dose not recognized in schedule (requested: ${requestedDoseNorm}, current: ${currentDoseNorm}).`,
+      displayValue: 'Unrecognized dose',
+      currentDose: drugHistory?.currentDose
+    };
+  }
+
+  if (requestedDoseNorm === currentDoseNorm) {
+    return {
+      status: CriteriaStatus.MET,
+      criterionType: 'doseProgression',
+      reason: `Continuing current dose: ${requestedDoseNorm}`,
+      displayValue: 'Continuation',
+      currentDose: drugHistory.currentDose
+    };
+  }
+
   if (requestedDoseIndex === currentDoseIndex + 1) {
-    // Check if already on max dose - cannot escalate further
-    if (isOnMaxDose) {
-      return {
-        status: CriteriaStatus.NOT_MET,
-        criterionType: 'doseProgression',
-        reason: `Patient is already on maximum dose (${currentDose}). Cannot escalate to ${requestedDose} - there is no higher dose available.`,
-        displayValue: '❌ Already at max dose',
-        currentDose: currentDose,
-        isMaxDose: true,
-        critical: true
-      };
-    }
-    
-    // Check if patient has been on current dose long enough
-    const currentDoseStartDate = drugHistory.doses?.find(d => d.value === currentDose)?.startDate;
-    const daysSinceDoseStart = currentDoseStartDate 
-      ? Math.floor((new Date() - new Date(currentDoseStartDate)) / (1000 * 60 * 60 * 24))
-      : 999; // If no date, assume enough time has passed
-    
-    const minDaysOnDose = 28; // Typically 4 weeks minimum per dose
-    
-    if (daysSinceDoseStart < minDaysOnDose) {
-      return {
-        status: CriteriaStatus.NOT_MET,
-        criterionType: 'doseProgression',
-        reason: `Patient has only been on ${currentDose} for ${daysSinceDoseStart} days. Must remain on each dose for at least ${minDaysOnDose} days (4 weeks) before titrating to avoid side effects and ensure safety.`,
-        displayValue: `❌ Too soon (${daysSinceDoseStart}d)`,
-        currentDose: currentDose,
-        daysOnCurrentDose: daysSinceDoseStart,
-        requiredDays: minDaysOnDose,
-        critical: true
-      };
-    }
-    
     return {
       status: CriteriaStatus.MET,
       criterionType: 'doseProgression',
-      reason: `Appropriate dose escalation from ${currentDose} to ${requestedDose} per titration schedule. Patient has been on ${currentDose} for ${daysSinceDoseStart} days (≥${minDaysOnDose} days required).`,
-      displayValue: '✅ Next dose - Escalation',
-      previousDose: currentDose,
-      newDose: requestedDose,
-      daysOnPreviousDose: daysSinceDoseStart,
-      critical: false
+      reason: `Progressing from ${drugHistory.currentDose} to ${requestedDoseNorm}`,
+      displayValue: 'Next dose',
+      previousDose: drugHistory.currentDose,
+      newDose: requestedDoseNorm
     };
   }
-  
-  // CASE 2C: Dose REDUCTION (de-escalation)
+
   if (requestedDoseIndex < currentDoseIndex) {
-    // Dose reduction may be appropriate for tolerability issues
-    return {
-      status: CriteriaStatus.MET,
-      criterionType: 'doseProgression',
-      reason: `Dose reduction from ${currentDose} to ${requestedDose}. May be appropriate for tolerability issues (nausea, vomiting, GI side effects). Document clinical reason for de-escalation in patient chart.`,
-      displayValue: '⚠️ De-escalation',
-      currentDose: currentDose,
-      newDose: requestedDose,
-      requiresJustification: true,
-      critical: false
-    };
-  }
-  
-  // CASE 2D: Skipping doses (NOT ALLOWED)
-  if (requestedDoseIndex > currentDoseIndex + 1) {
-    const nextAppropriateDose = doseSchedule[currentDoseIndex + 1].value;
     return {
       status: CriteriaStatus.NOT_MET,
       criterionType: 'doseProgression',
-      reason: `Cannot skip from ${currentDose} to ${requestedDose}. Must progress sequentially through titration schedule to ensure patient safety and tolerability. Next appropriate dose is ${nextAppropriateDose}.`,
-      displayValue: '❌ Skipping doses',
-      currentDose: currentDose,
-      requestedDose: requestedDose,
-      requiredNextDose: nextAppropriateDose,
-      critical: true
+      reason: `Cannot reduce dose from ${drugHistory.currentDose} to ${requestedDoseNorm}`,
+      displayValue: 'Going backwards',
+      currentDose: drugHistory.currentDose
     };
   }
-  
-  // CASE 3: Should never reach here, but handle edge case
+
+  // Skipping forward too many steps
   return {
     status: CriteriaStatus.NOT_MET,
     criterionType: 'doseProgression',
-    reason: `Unable to evaluate dose progression. Current: ${currentDose}, Requested: ${requestedDose}`,
-    displayValue: '? Unknown',
-    critical: true
+    reason: `Cannot skip from ${drugHistory.currentDose} to ${requestedDoseNorm}. Must progress sequentially.`,
+    displayValue: 'Skipping doses',
+    currentDose: drugHistory.currentDose
   };
 }
 
@@ -712,8 +598,11 @@ function evaluateDocumentation(patient, criterion) {
 
 // Helper function to determine dose info
 function getDoseInfo(drug, dose) {
+  // Normalize dose to string for consistent comparison
+  const normalizedDose = String(dose);
+  
   if (drug.doseSchedule) {
-    const doseInfo = drug.doseSchedule.find(d => d.value === dose);
+    const doseInfo = drug.doseSchedule.find(d => String(d.value) === normalizedDose);
     if (doseInfo) {
       return {
         isStartingDose: doseInfo.phase === "starting",
@@ -726,7 +615,7 @@ function getDoseInfo(drug, dose) {
   }
   
   if (drug.startingDoses) {
-    const isStartingDose = drug.startingDoses.includes(dose);
+    const isStartingDose = drug.startingDoses.some(d => String(d) === normalizedDose);
     return {
       isStartingDose,
       isTitrationDose: false,
