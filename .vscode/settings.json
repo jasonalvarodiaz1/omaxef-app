@@ -1,0 +1,15 @@
+{
+  // Increase TypeScript server memory for large projects
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  // Exclude large folders from file explorer and search
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true
+  }
+}

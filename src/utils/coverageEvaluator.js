@@ -1,438 +1,357 @@
-// coverageEvaluator.js - Real-time PA evaluation for weight-loss medications
-import { evaluatePatientCriteria } from './criteriaEvaluator';
-import { normalizeStatus, CriteriaStatus } from '../constants';
+import { getCoverageForDrug, getApplicableCriteria, evaluatePACriteriaDetailed, getDoseInfo, getApprovalLikelihood } from './coverageLogic';
+import { criteriaEvaluator } from './criteriaEvaluator';
+import { getCodings, codeMatches, getObservationNumericValue, findLatestObservationByCode } from './fhirHelpers';
+import { CriteriaStatus, normalizeStatus } from '../constants';
+import { CacheManager } from './cacheManager';
+import { withErrorRecovery } from './errorHandler';
 
-/**
- * Weight-loss drugs database with coverage requirements
- */
-const WEIGHT_LOSS_DRUGS = {
-  semaglutide_wegovy: {
-    name: 'Wegovy (Semaglutide)',
-    brandName: 'Wegovy',
-    genericName: 'Semaglutide',
-    dosages: ['0.25mg', '0.5mg', '1mg', '1.7mg', '2.4mg'],
-    maxDose: '2.4mg',
-    requiresPA: true,
-    baseRequirements: {
-      minAge: 18,
-      minBMI: 30,
-      minBMIWithComorbidity: 27,
-    },
-  },
-  semaglutide_ozempic: {
-    name: 'Ozempic (Semaglutide)',
-    brandName: 'Ozempic',
-    genericName: 'Semaglutide',
-    dosages: ['0.25mg', '0.5mg', '1mg', '2mg'],
-    maxDose: '2mg',
-    requiresPA: true,
-    indication: 'Type 2 Diabetes (off-label for weight loss)',
-    baseRequirements: {
-      minAge: 18,
-      requiresDiabetes: true,
-    },
-  },
-  tirzepatide_zepbound: {
-    name: 'Zepbound (Tirzepatide)',
-    brandName: 'Zepbound',
-    genericName: 'Tirzepatide',
-    dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'],
-    maxDose: '15mg',
-    requiresPA: true,
-    baseRequirements: {
-      minAge: 18,
-      minBMI: 30,
-      minBMIWithComorbidity: 27,
-    },
-  },
-  tirzepatide_mounjaro: {
-    name: 'Mounjaro (Tirzepatide)',
-    brandName: 'Mounjaro',
-    genericName: 'Tirzepatide',
-    dosages: ['2.5mg', '5mg', '7.5mg', '10mg', '12.5mg', '15mg'],
-    maxDose: '15mg',
-    requiresPA: true,
-    indication: 'Type 2 Diabetes (off-label for weight loss)',
-    baseRequirements: {
-      minAge: 18,
-      requiresDiabetes: true,
-    },
-  },
-  liraglutide_saxenda: {
-    name: 'Saxenda (Liraglutide)',
-    brandName: 'Saxenda',
-    genericName: 'Liraglutide',
-    dosages: ['0.6mg', '1.2mg', '1.8mg', '2.4mg', '3mg'],
-    maxDose: '3mg',
-    requiresPA: true,
-    baseRequirements: {
-      minAge: 18,
-      minBMI: 30,
-      minBMIWithComorbidity: 27,
-    },
-  },
-};
+// Initialize cache manager
+const cacheManager = new CacheManager();
 
-/**
- * Evaluate coverage and PA requirements for a specific medication
- */
-export const evaluateCoverage = (patientData, medication, selectedDose = null) => {
-  const drug = WEIGHT_LOSS_DRUGS[medication];
-  
-  if (!drug) {
-    return {
-      status: 'error',
-      message: 'Unknown medication',
+export async function evaluateCoverage(patientId, medication, dose) {
+  try {
+    // Check cache first
+    const cacheKey = {
+      patientId,
+      medication: medication?.code || medication?.name,
+      dose
     };
-  }
-
-  // Run criteria evaluation
-  const criteriaResults = evaluatePatientCriteria(patientData, {
-    drugName: drug.name,
-    selectedDose: selectedDose,
-    maxDose: drug.maxDose,
-  });
-
-  // Determine overall coverage status
-  const coverageStatus = determineCoverageStatus(criteriaResults, drug);
-
-  return {
-    drug: drug,
-    selectedDose: selectedDose,
-    requiresPA: drug.requiresPA,
-    coverageStatus: coverageStatus,
-    criteriaResults: criteriaResults,
-    recommendations: generateRecommendations(criteriaResults, drug),
-    likelihood: criteriaResults.overallLikelihood,
-    summary: generateSummary(coverageStatus, criteriaResults),
-  };
-};
-
-/**
- * Determine coverage status based on criteria evaluation
- */
-const determineCoverageStatus = (criteriaResults, drug) => {
-  const { overallStatus, criteriaList } = criteriaResults;
-
-  // Check critical failures
-  const criticalFailures = criteriaList.filter(
-    c => c.status === 'fail' && c.critical
-  );
-
-  if (criticalFailures.length > 0) {
-    return {
-      level: 'denied',
-      message: 'Does not meet critical requirements',
-      color: '#dc3545',
-      icon: '❌',
-    };
-  }
-
-  // Check if all criteria met
-  if (overallStatus === 'approved') {
-    return {
-      level: 'approved',
-      message: 'Likely to be approved without PA',
-      color: '#28a745',
-      icon: '✅',
-    };
-  }
-
-  // Check likelihood
-  if (criteriaResults.overallLikelihood >= 70) {
-    return {
-      level: 'likely',
-      message: 'PA required - High likelihood of approval',
-      color: '#28a745',
-      icon: '✓',
-    };
-  } else if (criteriaResults.overallLikelihood >= 40) {
-    return {
-      level: 'possible',
-      message: 'PA required - Moderate likelihood of approval',
-      color: '#ffc107',
-      icon: '⚠️',
-    };
-  } else {
-    return {
-      level: 'unlikely',
-      message: 'PA required - Low likelihood of approval',
-      color: '#dc3545',
-      icon: '⚠️',
-    };
-  }
-};
-
-/**
- * Generate actionable recommendations
- */
-const generateRecommendations = (criteriaResults, drug) => {
-  const recommendations = [];
-  const { criteriaList } = criteriaResults;
-
-  // Check each criterion and provide specific guidance
-  criteriaList.forEach(criterion => {
-    const normalized = normalizeStatus(criterion.status);
-    if (normalized === CriteriaStatus.NOT_MET || normalized === CriteriaStatus.WARNING) {
-      // Use criterionType if available, otherwise fall back to criterion
-      const criterionType = criterion.criterionType || criterion.type || criterion.criterion;
-      
-      switch (criterionType) {
-        case 'age':
-          if (normalized === CriteriaStatus.NOT_MET) {
-            recommendations.push({
-              priority: 'high',
-              category: 'Eligibility',
-              message: 'Patient does not meet minimum age requirement (18 years)',
-              action: 'Consider alternative treatments or wait until patient meets age requirement',
-            });
-          }
-          break;
-
-        case 'bmi':
-          if (normalized === CriteriaStatus.NOT_MET) {
-            const hasComorbidity = criteriaResults.criteriaList.find(
-              c => (c.criterionType || c.criterion) === 'comorbidities'
-            )?.status === CriteriaStatus.MET;
-            
-            if (hasComorbidity) {
-              recommendations.push({
-                priority: 'medium',
-                category: 'BMI',
-                message: `BMI is ${criterion.value?.toFixed(1)} (requires ≥27 with comorbidities)`,
-                action: 'Document weight-related comorbidities (diabetes, hypertension, dyslipidemia)',
-              });
-            } else {
-              recommendations.push({
-                priority: 'high',
-                category: 'BMI',
-                message: `BMI is ${criterion.value?.toFixed(1)} (requires ≥30)`,
-                action: 'Patient does not meet BMI criteria. Consider lifestyle modifications first.',
-              });
-            }
-          }
-          break;
-
-        case 'dose_progression':
-        case 'doseProgression':
-          recommendations.push({
-            priority: 'medium',
-            category: 'Treatment History',
-            message: criterion.reason,
-            action: 'Ensure patient has tried lower doses before requesting maximum dose',
-          });
-          break;
-
-        case 'weight_loss':
-        case 'weightLoss':
-          recommendations.push({
-            priority: 'medium',
-            category: 'Effectiveness',
-            message: criterion.reason,
-            action: 'Document weight loss progress. May need to switch medications if inadequate response.',
-          });
-          break;
-
-        case 'maintenance':
-        case 'weightMaintained':
-          recommendations.push({
-            priority: 'low',
-            category: 'Maintenance',
-            message: criterion.reason,
-            action: 'Document weight maintenance for continued approval',
-          });
-          break;
-
-        case 'documentation':
-          recommendations.push({
-            priority: 'high',
-            category: 'Documentation',
-            message: 'Missing required documentation',
-            action: 'Ensure complete medical records including: diagnosis codes, BMI documentation, treatment history, lifestyle modification attempts',
-          });
-          break;
-
-        case 'lifestyle_modifications':
-        case 'lifestyleModification':
-          recommendations.push({
-            priority: 'high',
-            category: 'Prior Authorization',
-            message: 'Missing documentation of lifestyle modification attempts',
-            action: 'Document 3-6 months of diet and exercise attempts before medication therapy',
-          });
-          break;
-
-        default:
-          console.warn('Unhandled criterion:', criterionType);
-          break;
-      }
-    }
-  });
-
-  // Add general recommendations
-  if (recommendations.length === 0) {
-    recommendations.push({
-      priority: 'low',
-      category: 'General',
-      message: 'All criteria met',
-      action: 'Submit prescription. Prior authorization should be approved quickly.',
-    });
-  } else {
-    recommendations.push({
-      priority: 'medium',
-      category: 'Next Steps',
-      message: 'Address the above items to improve PA approval likelihood',
-      action: 'Consider calling insurance plan to verify specific requirements',
-    });
-  }
-
-  return recommendations.sort((a, b) => {
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
-  });
-};
-
-/**
- * Generate summary text
- */
-const generateSummary = (coverageStatus, criteriaResults) => {
-  // Ensure we have a normalized list of criteria results
-  const list = (criteriaResults && criteriaResults.criteriaList) ? criteriaResults.criteriaList : [];
-
-  const normalized = list.map(r => ({
-    ...r,
-    status: normalizeStatus(r.status),
-  }));
-
-  const passCount = normalized.filter(c => c.status === CriteriaStatus.MET).length;
-  const totalCount = normalized.length;
-  const warningCount = normalized.filter(c => c.status === CriteriaStatus.WARNING).length;
-  const failCount = normalized.filter(c => c.status === CriteriaStatus.NOT_MET).length;
-
-  let summary = `Patient meets ${passCount} of ${totalCount} criteria`;
-  
-  if (warningCount > 0) {
-    summary += ` (${warningCount} with warnings)`;
-  }
-  
-  if (failCount > 0) {
-    summary += ` (${failCount} not met)`;
-  }
-
-  return summary;
-};
-
-/**
- * Get all available weight-loss medications
- */
-export const getAvailableMedications = () => {
-  return Object.entries(WEIGHT_LOSS_DRUGS).map(([key, drug]) => ({
-    id: key,
-    name: drug.name,
-    brandName: drug.brandName,
-    genericName: drug.genericName,
-    dosages: drug.dosages,
-    indication: drug.indication,
-  }));
-};
-
-/**
- * Quick check if medication is likely to be covered
- */
-export const quickCoverageCheck = (patientData, medicationId) => {
-  const drug = WEIGHT_LOSS_DRUGS[medicationId];
-  
-  if (!drug) return { covered: false, reason: 'Unknown medication' };
-
-  const age = patientData.demographics?.age;
-  const bmi = patientData.calculatedValues?.bmi;
-  const hasDiabetes = patientData.calculatedValues?.hasDiabetes;
-  const hasComorbidity = hasDiabetes || patientData.calculatedValues?.hasHypertension;
-
-  // Check age
-  if (age < drug.baseRequirements.minAge) {
-    return { covered: false, reason: `Patient under age ${drug.baseRequirements.minAge}` };
-  }
-
-  // Check diabetes requirement (for Ozempic/Mounjaro)
-  if (drug.baseRequirements.requiresDiabetes && !hasDiabetes) {
-    return { covered: false, reason: 'Requires Type 2 Diabetes diagnosis' };
-  }
-
-  // Check BMI
-  if (drug.baseRequirements.minBMI) {
-    const requiredBMI = hasComorbidity 
-      ? drug.baseRequirements.minBMIWithComorbidity 
-      : drug.baseRequirements.minBMI;
     
-    if (!bmi || bmi < requiredBMI) {
-      return { 
-        covered: false, 
-        reason: `BMI ${bmi?.toFixed(1) || 'unknown'} is below required ${requiredBMI}` 
+    const cached = await cacheManager.get('evaluations', cacheKey);
+    if (cached && cached.timestamp && (Date.now() - cached.timestamp < 5 * 60 * 1000)) {
+      console.log('Using cached evaluation result');
+      return cached;
+    }
+
+    // Proceed with evaluation
+    const result = await withErrorRecovery(
+      async () => performEvaluation(patientId, medication, dose),
+      'CRITERIA_EVAL_ERROR',
+      { operation: 'evaluateCoverage', patientId }
+    );
+
+    // Cache the result
+    await cacheManager.set('evaluations', cacheKey, {
+      ...result,
+      timestamp: Date.now()
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Coverage evaluation failed:', error);
+    return {
+      error: error.message,
+      criteriaResults: [],
+      summary: 'Evaluation failed. Manual review required.',
+      approvalLikelihood: 0,
+      recommendations: [{
+        priority: 'high',
+        action: 'manual_review',
+        message: 'Automated evaluation failed. Please perform manual review.',
+        steps: ['Review patient chart', 'Contact payer for requirements']
+      }]
+    };
+  }
+}
+
+async function performEvaluation(patientId, medication, dose) {
+  // Mock patient data - replace with actual FHIR data fetching
+  const patientData = await fetchPatientData(patientId);
+  
+  // Get drug coverage info first
+  // This is a simplified version - in production you'd need to get the actual drug object
+  // For now, return empty array if we can't determine criteria
+  const applicableCriteria = [];
+  // TODO: Implement proper drug/criteria lookup based on medication and dose
+  // const drug = getCoverageForDrug(drugCoverage, patientData.insurance, medication.name, indication);
+  // const applicableCriteria = getApplicableCriteria(drug, dose, patientData, medication.name);
+  
+  if (!applicableCriteria || applicableCriteria.length === 0) {
+    return {
+      error: 'No criteria found for this medication/dose combination',
+      criteriaResults: [],
+      summary: 'No coverage criteria configured',
+      approvalLikelihood: 0,
+      recommendations: [{
+        priority: 'high',
+        action: 'configuration',
+        message: 'No criteria configured for this medication. Contact system administrator.'
+      }]
+    };
+  }
+  
+  // Evaluate each criterion with enhanced features
+  const criteriaResults = [];
+  let totalScore = 0;
+  let totalWeight = 0;
+  let highPriorityRecommendations = [];
+  let mediumPriorityRecommendations = [];
+  
+  // Create fhirHelpers object for compatibility with criteriaEvaluator
+  const fhirHelpersObj = {
+    getCodings,
+    codeMatches,
+    getObservationNumericValue,
+    findLatestObservationByCode,
+    getLatestObservation: findLatestObservationByCode,
+    extractNumericValue: getObservationNumericValue,
+    getObservationsByCode: (observations, code) => {
+      return observations?.filter(obs => codeMatches(obs, code)) || [];
+    }
+  };
+  
+  for (const criterion of applicableCriteria) {
+    let result;
+    
+    try {
+      // Call the appropriate evaluator based on criterion type
+      switch (criterion.type) {
+        case 'age':
+          result = await criteriaEvaluator.evaluateAge(patientData, criterion);
+          break;
+        case 'bmi':
+          result = await criteriaEvaluator.evaluateBMI(patientData, criterion, fhirHelpersObj);
+          break;
+        case 'weightLoss':
+          result = await criteriaEvaluator.evaluateWeightLoss(patientData, criterion, fhirHelpersObj);
+          break;
+        case 'maintenance':
+          result = await criteriaEvaluator.evaluateMaintenance(patientData, criterion, fhirHelpersObj);
+          break;
+        case 'doseProgression':
+          result = await criteriaEvaluator.evaluateDoseProgression(patientData, criterion, fhirHelpersObj);
+          break;
+        case 'documentation':
+          result = await criteriaEvaluator.evaluateDocumentation(patientData, criterion);
+          break;
+        default:
+          result = {
+            status: CriteriaStatus.NOT_EVALUATED,
+            reason: `Unknown criterion type: ${criterion.type}`,
+            displayValue: 'Not evaluated',
+            confidence: 0,
+            evidence: [{
+              type: 'error',
+              message: `Criterion type '${criterion.type}' is not implemented`
+            }]
+          };
+      }
+    } catch (error) {
+      console.error(`Error evaluating criterion ${criterion.type}:`, error);
+      result = {
+        status: CriteriaStatus.NOT_EVALUATED,
+        reason: `Evaluation error: ${error.message}`,
+        displayValue: 'Error',
+        confidence: 0,
+        evidence: [{
+          type: 'error',
+          message: error.message
+        }]
       };
     }
+    
+    // Add criterion metadata to result
+    result.criterion = criterion.description || criterion.type;
+    result.type = criterion.type;
+    result.required = criterion.required !== false;
+    
+    criteriaResults.push(result);
+    
+    // Calculate weighted score for approval likelihood
+    const normalizedStatus = normalizeStatus(result.status);
+    const confidence = result.confidence || 1;
+    const weight = result.required ? 2 : 1;
+    
+    if (normalizedStatus === CriteriaStatus.MET) {
+      totalScore += weight * confidence;
+    } else if (normalizedStatus === CriteriaStatus.PARTIALLY_MET) {
+      totalScore += weight * confidence * 0.5;
+    } else if (normalizedStatus === CriteriaStatus.PENDING_DOCUMENTATION) {
+      totalScore += weight * confidence * 0.3;
+    }
+    
+    if (normalizedStatus !== CriteriaStatus.NOT_APPLICABLE) {
+      totalWeight += weight;
+    }
+    
+    // Collect recommendations
+    if (result.recommendation) {
+      if (result.recommendation.priority === 'high') {
+        highPriorityRecommendations.push({
+          ...result.recommendation,
+          criterion: result.criterion,
+          currentStatus: normalizedStatus
+        });
+      } else {
+        mediumPriorityRecommendations.push({
+          ...result.recommendation,
+          criterion: result.criterion,
+          currentStatus: normalizedStatus
+        });
+      }
+    }
   }
-
-  return { covered: true, reason: 'Meets basic criteria' };
-};
-
-/**
- * Get coverage details for a specific drug
- */
-export const getCoverageForDrug = (drugCoverage, insurance, drugName) => {
-  return drugCoverage.find(
-    (coverage) => coverage.payor === insurance && coverage.drugName === drugName
-  );
-};
-
-/**
- * Get applicable criteria for a specific dose
- */
-export const getApplicableCriteria = (coverage, selectedDose, patient, drugName) => {
-  if (!coverage || !coverage.paCriteria) return [];
-
-  return coverage.paCriteria.filter((criterion) => {
-    // Add logic to filter criteria based on dose, patient, and drugName
-    return criterion.dose === selectedDose || !criterion.dose;
-  });
-};
-
-/**
- * Evaluate a specific PA criterion
- */
-export const evaluatePACriteria = (patient, coverage, selectedDose, criterion, drugName) => {
-  // Add logic to evaluate the criterion based on patient data
-  if (criterion.rule === 'age') {
-    return patient.demographics.age >= criterion.value ? 'pass' : 'fail';
+  
+  // Calculate approval likelihood
+  const approvalLikelihood = totalWeight > 0 
+    ? Math.round((totalScore / totalWeight) * 100)
+    : 0;
+  
+  // Generate summary
+  const metCount = criteriaResults.filter(r => 
+    normalizeStatus(r.status) === CriteriaStatus.MET
+  ).length;
+  const totalCount = criteriaResults.filter(r => 
+    normalizeStatus(r.status) !== CriteriaStatus.NOT_APPLICABLE
+  ).length;
+  
+  let summary = `Patient meets ${metCount} of ${totalCount} criteria.`;
+  
+  if (approvalLikelihood >= 80) {
+    summary += ' Prior authorization likely to be approved.';
+  } else if (approvalLikelihood >= 60) {
+    summary += ' Prior authorization may require additional documentation.';
+  } else {
+    summary += ' Prior authorization unlikely without addressing deficiencies.';
   }
-  if (criterion.rule === 'bmi') {
-    return patient.calculatedValues.bmi >= criterion.value ? 'pass' : 'fail';
+  
+  // Prioritize and limit recommendations
+  const recommendations = [
+    ...highPriorityRecommendations.slice(0, 3),
+    ...mediumPriorityRecommendations.slice(0, 2)
+  ];
+  
+  // Add general recommendations based on patterns
+  const pendingCount = criteriaResults.filter(r => 
+    normalizeStatus(r.status) === CriteriaStatus.PENDING_DOCUMENTATION
+  ).length;
+  
+  if (pendingCount > 2) {
+    recommendations.push({
+      priority: 'high',
+      action: 'documentation_review',
+      message: `${pendingCount} criteria require documentation. Schedule comprehensive chart review.`,
+      steps: [
+        'Review missing documentation items',
+        'Collect required clinical notes',
+        'Update patient record'
+      ]
+    });
   }
-  // Add more rules as needed
-  return 'unknown';
-};
-
-/**
- * Get status icon for a criterion evaluation
- */
-export const statusIcon = (status, rule) => {
-  switch (status) {
-    case 'pass':
-      return '✓';
-    case 'fail':
-      return '✗';
-    case 'warning':
-      return '⚠';
-    default:
-      return '?';
+  
+  // Check for data quality issues
+  const lowConfidenceCount = criteriaResults.filter(r => 
+    r.confidence && r.confidence < 0.7
+  ).length;
+  
+  if (lowConfidenceCount > 1) {
+    recommendations.push({
+      priority: 'medium',
+      action: 'data_quality',
+      message: 'Multiple criteria have low confidence due to outdated or missing data.',
+      steps: [
+        'Update clinical measurements',
+        'Verify medication history',
+        'Confirm documentation dates'
+      ]
+    });
   }
-};
+  
+  return {
+    criteriaResults,
+    summary,
+    approvalLikelihood,
+    recommendations: recommendations.slice(0, 5), // Limit to 5 recommendations
+    metadata: {
+      evaluationDate: new Date().toISOString(),
+      medication: medication?.name || 'Unknown',
+      dose,
+      patientId,
+      metCriteria: metCount,
+      totalCriteria: totalCount,
+      averageConfidence: criteriaResults.reduce((sum, r) => sum + (r.confidence || 0), 0) / criteriaResults.length
+    }
+  };
+}
 
-const coverageEvaluator = {
-  evaluateCoverage,
-  getAvailableMedications,
-  quickCoverageCheck,
-  WEIGHT_LOSS_DRUGS,
-};
-
-export default coverageEvaluator;
+// Mock function - replace with actual FHIR data fetching
+async function fetchPatientData(patientId) {
+  // This should be replaced with actual FHIR API calls
+  // For now, returning mock data structure
+  
+  // Try to get from cache first
+  const cached = await cacheManager.get('patientData', { patientId });
+  if (cached) {
+    console.log('Using cached patient data');
+    return cached;
+  }
+  
+  // Mock data - replace with actual FHIR fetching
+  const mockData = {
+    id: patientId,
+    birthDate: '1980-01-15',
+    observations: [
+      // Mock BMI observation
+      {
+        resourceType: 'Observation',
+        code: {
+          coding: [{ system: 'http://loinc.org', code: '39156-5' }]
+        },
+        valueQuantity: { value: 31, unit: 'kg/m2' },
+        effectiveDateTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      // Mock weight observations
+      {
+        resourceType: 'Observation',
+        code: {
+          coding: [{ system: 'http://loinc.org', code: '29463-7' }]
+        },
+        valueQuantity: { value: 95, unit: 'kg' },
+        effectiveDateTime: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        resourceType: 'Observation',
+        code: {
+          coding: [{ system: 'http://loinc.org', code: '29463-7' }]
+        },
+        valueQuantity: { value: 88, unit: 'kg' },
+        effectiveDateTime: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ],
+    medicationHistory: [
+      {
+        medication: 'metformin',
+        dose: '1000',
+        unit: 'mg',
+        startDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        medication: 'semaglutide',
+        dose: '0.25',
+        unit: 'mg',
+        startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        medication: 'semaglutide',
+        dose: '0.5',
+        unit: 'mg',
+        startDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: null
+      }
+    ],
+    documentation: [
+      {
+        type: 'clinical_note',
+        date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+        clinicalRationale: 'Patient has documented history of failed therapy with metformin due to GI intolerance. Current BMI 31 with ongoing weight management needs.'
+      }
+    ]
+  };
+  
+  // Cache the mock data
+  await cacheManager.set('patientData', { patientId }, mockData);
+  
+  return mockData;
+}
