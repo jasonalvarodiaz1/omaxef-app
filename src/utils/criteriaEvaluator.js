@@ -564,6 +564,7 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
         criterionType: 'bmi',
         value: bmiValue,
         reason: bmiReason,
+        hasComorbidity: hasWeightRelatedComorbidity,
         hasWeightRelatedComorbidity
       };
     }

@@ -2,35 +2,33 @@
 // Add this file and import from other modules (coverageEvaluator, criteriaEvaluator, coverageLogic, tests, etc.)
 
 export const CriteriaStatus = {
-  MET: 'met',
-  NOT_MET: 'not_met',
-  WARNING: 'warning',
-  NOT_APPLICABLE: 'not_applicable',
-};
-
-// Map many legacy/alternate strings to canonical statuses.
-// Extend this map if you encounter other synonyms in the codebase.
-export const STATUS_MAP = {
-  pass: CriteriaStatus.MET,
-  fail: CriteriaStatus.NOT_MET,
-  met: CriteriaStatus.MET,
-  not_met: CriteriaStatus.NOT_MET,
-  warning: CriteriaStatus.WARNING,
-  'not_applicable': CriteriaStatus.NOT_APPLICABLE,
-  yes: CriteriaStatus.MET,
-  no: CriteriaStatus.NOT_MET,
-  na: CriteriaStatus.NOT_APPLICABLE,
-  n_a: CriteriaStatus.NOT_APPLICABLE,
+  MET: 'MET',
+  NOT_MET: 'NOT_MET',
+  NOT_APPLICABLE: 'NOT_APPLICABLE',
+  WARNING: 'WARNING'
 };
 
 /**
- * Normalize a single status string into the canonical CriteriaStatus value.
- * Returns null for falsy inputs.
+ * Normalize a status-like value into one of the CriteriaStatus values.
+ * Accepts strings (case-insensitive, trimmed) and gracefully handles null/undefined.
  */
-export function normalizeStatus(s) {
-  if (s === undefined || s === null) return null;
-  const key = String(s).trim().toLowerCase();
-  return STATUS_MAP[key] || String(s);
+export function normalizeStatus(input) {
+  if (input === null || input === undefined) return CriteriaStatus.NOT_MET;
+
+  const s = String(input).trim().toLowerCase();
+
+  const MET = new Set(['pass', 'yes', 'met', 'approved', 'true']);
+  const NOT_MET = new Set(['fail', 'no', 'not_met', 'denied', 'false']);
+  const NOT_APPLICABLE = new Set(['not_applicable', 'n/a', 'na']);
+  const WARNING = new Set(['warning', 'warn']);
+
+  if (MET.has(s)) return CriteriaStatus.MET;
+  if (NOT_MET.has(s)) return CriteriaStatus.NOT_MET;
+  if (NOT_APPLICABLE.has(s)) return CriteriaStatus.NOT_APPLICABLE;
+  if (WARNING.has(s)) return CriteriaStatus.WARNING;
+
+  // default for unknown/invalid values per tests
+  return CriteriaStatus.NOT_MET;
 }
 
 /**
