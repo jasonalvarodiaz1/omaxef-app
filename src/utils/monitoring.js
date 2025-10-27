@@ -185,8 +185,8 @@ class MonitoringService {
   sanitizeEndpoint(endpoint) {
     // Remove patient IDs from URLs
     return endpoint
-      .replace(/\/Patient\/[^\/]+/, '/Patient/[ID]')
-      .replace(/\/Observation\/[^\/]+/, '/Observation/[ID]')
+      .replace(/\/Patient\/[^/]+/, '/Patient/[ID]')
+      .replace(/\/Observation\/[^/]+/, '/Observation/[ID]')
       .replace(/patient=[^&]+/, 'patient=[ID]')
       .replace(/\b\d{6,}\b/g, '[ID]'); // Remove long number sequences
   }
