@@ -6,6 +6,7 @@ export const patients = [
     age: 72,
     gender: "female",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Dyslipidemia", "Obesity"],
+    comorbidities: ["Hypertension", "Dyslipidemia", "Obesity"],
     allergies: ["Penicillin", "Sulfa drugs"],
     vitals: {
       height: { value: 160, units: "cm" },
@@ -24,17 +25,30 @@ export const patients = [
       {
         name: "Metformin",
         dose: "1000 mg",
-        sig: "Take 1 tablet by mouth twice daily"
+        sig: "Take 1 tablet by mouth twice daily",
+        startDate: "2023-06-01",
+        status: "active"
+      },
+      {
+        name: "Glipizide", // Sulfonylurea
+        dose: "10 mg",
+        sig: "Take 1 tablet by mouth twice daily",
+        startDate: "2024-01-15",
+        status: "active"
       },
       {
         name: "Lisinopril",
         dose: "20 mg",
-        sig: "Take 1 tablet by mouth once daily"
+        sig: "Take 1 tablet by mouth once daily",
+        startDate: "2022-03-01",
+        status: "active"
       },
       {
         name: "Atorvastatin",
         dose: "40 mg",
-        sig: "Take 1 tablet by mouth at bedtime"
+        sig: "Take 1 tablet by mouth at bedtime",
+        startDate: "2022-03-01",
+        status: "active"
       }
     ],
     clinicalNotes: {
@@ -42,7 +56,24 @@ export const patients = [
       baselineWeight: { value: 82, units: "kg", date: "2024-07-01" },
       currentWeight: { value: 82, units: "kg", date: "2024-10-01" },
       weightLossPercentage: 0,
-      monthsOnMaintenanceDose: 0
+      monthsOnMaintenanceDose: 0,
+      baselineA1C: 9.1, // Baseline before starting Metformin and Glipizide
+      contraindications: {
+        pregnancy: false,
+        breastfeeding: false,
+        mtcHistory: false,
+        men2: false,
+        pancreatitis: false,
+        familyMtcHistory: false,
+        renalImpairment: false // eGFR 80, which is > 30
+      },
+      documentation: {
+        diabetesDiagnosis: { present: true, date: "2023-06-01", icd10: "E11.9" },
+        baselineLabs: { present: true, date: "2023-06-01" },
+        currentLabs: { present: true, date: "2024-09-15" },
+        priorMedications: { present: true, date: "2024-09-15", trials: 2 },
+        treatmentPlan: { present: true, date: "2024-09-15" }
+      }
     },
     therapyHistory: [] // Never been on GLP-1
   },
@@ -53,6 +84,7 @@ export const patients = [
     age: 58,
     gender: "male",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Obesity"],
+    comorbidities: ["Type 2 Diabetes", "Hypertension", "Obesity"],
     allergies: [],
     vitals: {
       height: { value: 173, units: "cm" },
@@ -71,21 +103,35 @@ export const patients = [
       {
         name: "Metformin",
         dose: "500 mg",
-        sig: "Take 1 tablet by mouth twice daily"
+        sig: "Take 1 tablet by mouth twice daily",
+        startDate: "2023-05-01",
+        status: "active"
       },
       {
         name: "Empagliflozin",
         dose: "25 mg",
-        sig: "Take 1 tablet by mouth once daily"
+        sig: "Take 1 tablet by mouth once daily",
+        startDate: "2024-01-01",
+        status: "active"
       },
       {
         name: "Amlodipine",
         dose: "10 mg",
-        sig: "Take 1 tablet by mouth once daily"
+        sig: "Take 1 tablet by mouth once daily",
+        startDate: "2022-06-01",
+        status: "active"
       }
     ],
     clinicalNotes: {
       hasWeightProgram: true,
+      contraindications: {
+        pregnancy: false,
+        breastfeeding: false,
+        mtcHistory: false,
+        men2: false,
+        pancreatitis: false,
+        familyMtcHistory: false
+      },
       baselineWeight: { value: 87, units: "kg", date: "2024-08-01" },
       currentWeight: { value: 87, units: "kg", date: "2024-10-01" },
       weightLossPercentage: 0,
@@ -100,6 +146,7 @@ export const patients = [
     age: 44,
     gender: "female",
     diagnosis: ["Generalized Anxiety Disorder"],
+    comorbidities: [], // No weight-related comorbidities
     allergies: ["None"],
     vitals: {
       height: { value: 165, units: "cm" },
@@ -117,16 +164,28 @@ export const patients = [
       {
         name: "Sertraline",
         dose: "50 mg",
-        sig: "Take 1 tablet by mouth once daily"
+        sig: "Take 1 tablet by mouth once daily",
+        startDate: "2023-08-01",
+        status: "active"
       },
       {
         name: "Alprazolam",
         dose: "0.5 mg",
-        sig: "Take 1 tablet by mouth as needed for anxiety"
+        sig: "Take 1 tablet by mouth as needed for anxiety",
+        startDate: "2023-08-01",
+        status: "active"
       }
     ],
     clinicalNotes: {
       hasWeightProgram: false,
+      contraindications: {
+        pregnancy: false,
+        breastfeeding: false,
+        mtcHistory: false,
+        men2: false,
+        pancreatitis: false,
+        familyMtcHistory: false
+      },
       baselineWeight: { value: 76, units: "kg", date: "2024-06-01" },
       currentWeight: { value: 76, units: "kg", date: "2024-10-01" },
       weightLossPercentage: 0,
@@ -141,6 +200,7 @@ export const patients = [
     age: 61,
     gender: "male",
     diagnosis: ["Type 2 Diabetes", "Dyslipidemia", "Obesity"],
+    comorbidities: ["Type 2 Diabetes", "Dyslipidemia"], // Weight-related comorbidities
     allergies: ["Aspirin"],
     vitals: {
       height: { value: 175, units: "cm" },
@@ -159,25 +219,78 @@ export const patients = [
       {
         name: "Metformin",
         dose: "1000 mg",
-        sig: "Take 1 tablet by mouth twice daily"
+        sig: "Take 1 tablet by mouth twice daily",
+        startDate: "2023-01-15",
+        status: "active"
       },
       {
         name: "Canagliflozin",
         dose: "300 mg",
-        sig: "Take 1 tablet by mouth once daily before breakfast"
+        sig: "Take 1 tablet by mouth once daily before breakfast",
+        startDate: "2023-06-01",
+        status: "active"
       },
       {
         name: "Simvastatin",
         dose: "20 mg",
-        sig: "Take 1 tablet by mouth at bedtime"
+        sig: "Take 1 tablet by mouth at bedtime",
+        startDate: "2022-08-01",
+        status: "active"
       }
     ],
     clinicalNotes: {
       hasWeightProgram: true,
+      lifestyleModification: {
+        participated: true,
+        startDate: "2024-01-01",
+        endDate: "2024-07-01",
+        durationMonths: 6,
+        programType: "Comprehensive lifestyle intervention with diet, exercise, and behavioral counseling",
+        weightLossAchieved: 2.0, // Only 2% weight loss - less than 5% threshold
+        documentation: "Patient completed 6-month intensive behavioral therapy program"
+      },
+      priorWeightLossAttempts: [
+        {
+          method: "Diet modification (low-carb diet)",
+          startDate: "2023-03-01",
+          endDate: "2023-08-01",
+          outcome: "Minimal weight loss, discontinued due to difficulty maintaining",
+          documentation: "Documented in chart notes"
+        },
+        {
+          method: "Exercise program (3x/week cardio)",
+          startDate: "2023-09-01",
+          endDate: "2024-01-01",
+          outcome: "No significant weight loss achieved",
+          documentation: "Documented in chart notes"
+        }
+      ],
+      prescriberQualification: {
+        qualified: true,
+        specialty: "Endocrinology",
+        boardCertified: true,
+        experienceInWeightManagement: true
+      },
+      contraindications: {
+        pregnancy: false,
+        breastfeeding: false,
+        mtcHistory: false,
+        men2: false,
+        pancreatitis: false,
+        familyMtcHistory: false
+      },
       baselineWeight: { value: 104, units: "kg", date: "2024-07-01" },
       currentWeight: { value: 104, units: "kg", date: "2024-10-01" },
       weightLossPercentage: 0,
-      monthsOnMaintenanceDose: 0
+      monthsOnMaintenanceDose: 0,
+      documentation: {
+        baselineVitals: { present: true, date: "2024-07-01" },
+        bmiChart: { present: true, date: "2024-07-01" },
+        comorbidities: { present: true, date: "2024-07-01", icd10: ["E11.9", "E78.5", "E66.9"] },
+        lifestyleProgram: { present: true, date: "2024-07-01", details: "6-month intensive behavioral therapy" },
+        priorMedications: { present: true, date: "2024-07-01", trials: 2 },
+        treatmentPlan: { present: true, date: "2024-07-01" }
+      }
     },
     therapyHistory: [] // GLP-1 NAIVE - Never been on any GLP-1
   },
@@ -188,6 +301,7 @@ export const patients = [
     age: 52,
     gender: "female",
     diagnosis: ["Type 2 Diabetes", "Hypertension", "Obesity"],
+    comorbidities: ["Type 2 Diabetes", "Hypertension"],
     allergies: [],
     vitals: {
       height: { value: 168, units: "cm" },
@@ -206,28 +320,81 @@ export const patients = [
       {
         name: "Metformin",
         dose: "1000 mg",
-        sig: "Take 1 tablet by mouth twice daily"
+        sig: "Take 1 tablet by mouth twice daily",
+        startDate: "2023-01-01",
+        status: "active"
       },
       {
         name: "Lisinopril",
         dose: "10 mg",
-        sig: "Take 1 tablet by mouth once daily"
+        sig: "Take 1 tablet by mouth once daily",
+        startDate: "2022-06-01",
+        status: "active"
       },
       {
         name: "Wegovy",
         dose: "2.4 mg",
-        sig: "Inject 2.4 mg subcutaneously once weekly"
+        sig: "Inject 2.4 mg subcutaneously once weekly",
+        startDate: "2024-08-01",
+        status: "active"
       }
     ],
     clinicalNotes: {
       hasWeightProgram: true,
+      lifestyleModification: {
+        participated: true,
+        startDate: "2023-09-01",
+        endDate: "2024-03-01",
+        durationMonths: 6,
+        programType: "Comprehensive lifestyle intervention",
+        weightLossAchieved: 2.9,
+        documentation: "Completed 6-month program before Wegovy initiation"
+      },
+      priorWeightLossAttempts: [
+        {
+          method: "Diet and exercise program",
+          startDate: "2023-03-01",
+          endDate: "2023-08-01",
+          outcome: "Minimal weight loss",
+          documentation: "Documented"
+        },
+        {
+          method: "Behavioral counseling",
+          startDate: "2023-09-01",
+          endDate: "2024-03-01",
+          outcome: "2.9% weight loss (insufficient)",
+          documentation: "Documented"
+        }
+      ],
+      prescriberQualification: {
+        qualified: true,
+        specialty: "Endocrinology",
+        boardCertified: true,
+        experienceInWeightManagement: true
+      },
+      contraindications: {
+        pregnancy: false,
+        breastfeeding: false,
+        mtcHistory: false,
+        men2: false,
+        pancreatitis: false,
+        familyMtcHistory: false
+      },
       baselineWeight: { value: 103, units: "kg", date: "2024-04-01" },
       currentWeight: { value: 98, units: "kg", date: "2024-10-01" },
-      initialWeightLossPercentage: 5.8,  // Peak weight loss (6kg from 103kg)
-      currentWeightLossPercentage: 4.9,   // Current sustained weight loss
+      initialWeightLossPercentage: 5.8,
+      currentWeightLossPercentage: 4.9,
       weightMaintenanceMonths: 2,
       weightLossPercentage: 4.9,
-      monthsOnMaintenanceDose: 2
+      monthsOnMaintenanceDose: 2,
+      documentation: {
+        baselineVitals: { present: true, date: "2024-04-01" },
+        bmiChart: { present: true, date: "2024-04-01" },
+        comorbidities: { present: true, date: "2024-04-01", icd10: ["E11.9", "I10", "E66.9"] },
+        lifestyleProgram: { present: true, date: "2024-03-01", details: "6-month program" },
+        priorMedications: { present: true, date: "2024-04-01", trials: 2 },
+        treatmentPlan: { present: true, date: "2024-04-01" }
+      }
     },
     therapyHistory: [
       {

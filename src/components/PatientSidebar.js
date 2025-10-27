@@ -164,19 +164,6 @@ const PatientSidebar = ({ onPatientDataLoaded, devMode = false, mockData = null 
                 </span>
               </div>
             </div>
-            
-            {/* Key Diagnoses Badges */}
-            <div className="key-diagnoses">
-              <div className={`diagnosis-badge ${patientData.calculatedValues.hasDiabetes ? 'present' : 'absent'}`}>
-                {patientData.calculatedValues.hasDiabetes ? '✓' : '○'} Diabetes
-              </div>
-              <div className={`diagnosis-badge ${patientData.calculatedValues.hasObesityDiagnosis ? 'present' : 'absent'}`}>
-                {patientData.calculatedValues.hasObesityDiagnosis ? '✓' : '○'} Obesity
-              </div>
-              <div className={`diagnosis-badge ${patientData.calculatedValues.hasHypertension ? 'present' : 'absent'}`}>
-                {patientData.calculatedValues.hasHypertension ? '✓' : '○'} Hypertension
-              </div>
-            </div>
           </section>
 
           <section className="detail-section">

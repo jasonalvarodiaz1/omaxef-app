@@ -129,20 +129,28 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
 export function getApplicableCriteria(drug, dose, patient, drugName) {
   if (!drug.evaluationRules || !drug.paCriteria) return drug.paCriteria || [];
   
-  const doseInfo = getDoseInfo(drug, dose);
+  // Check if patient is currently on this medication
+  const drugHistory = patient?.therapyHistory?.find(h => 
+    h.drug === drugName || h.drug?.toLowerCase() === drugName?.toLowerCase()
+  );
+  const isCurrentlyOnMedication = drugHistory && drugHistory.status === "active";
+  
+  // If patient is already on the medication, evaluate based on their CURRENT dose/phase
+  // not the selected dose in the UI (which might be hypothetical)
+  let evaluationDose = dose;
+  if (isCurrentlyOnMedication && drugHistory.currentDose) {
+    evaluationDose = drugHistory.currentDose;
+  }
+  
+  const doseInfo = getDoseInfo(drug, evaluationDose);
   let applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
   
-  // Check if this is a continuation of current therapy
-  const drugHistory = patient?.therapyHistory?.find(h => h.drug === drugName);
-  const isContinuation = drugHistory && drugHistory.currentDose === dose && drugHistory.status === "active";
+  // For patients already on medication at maintenance dose, apply maintenance criteria
+  // (includes weightLoss, weightMaintained, etc.)
+  const isContinuation = isCurrentlyOnMedication && drugHistory.currentDose === evaluationDose;
   
-  // For continuations, only apply basic eligibility criteria (age, BMI, doseProgression)
-  // Skip maintenance time and weight loss criteria since they were checked at initial approval
-  if (isContinuation) {
-    applicableTypes = applicableTypes.filter(type => 
-      ['age', 'bmi', 'doseProgression'].includes(type)
-    );
-  }
+  // Don't filter out criteria for continuations - they need to demonstrate ongoing efficacy
+  // Remove the old logic that filtered to only basic criteria
   
   // Filter criteria based on dose type
   return drug.paCriteria.filter(criterion => 

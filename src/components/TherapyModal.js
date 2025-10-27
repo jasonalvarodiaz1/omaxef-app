@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import CoverageDisplay from "./CoverageDisplay";
+import { CoverageDisplay } from "./CoverageDisplay";
 import PAForm from "./PAForm";
 import { getCoverageForDrug } from "../utils/coverageLogic";
 

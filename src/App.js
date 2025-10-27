@@ -317,19 +317,6 @@ function AppContent() {
                         </span>
                       </div>
                     </div>
-                    
-                    {/* Key Diagnoses Badges */}
-                    <div className="key-diagnoses" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
-                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '#0f5132' : '#6c757d' }}>
-                        {selectedPatient.diagnosis?.includes('Type 2 Diabetes') ? '✓' : '○'} Diabetes
-                      </div>
-                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '#0f5132' : '#6c757d' }}>
-                        {selectedPatient.diagnosis?.some(d => d.toLowerCase().includes('obesity')) ? '✓' : '○'} Obesity
-                      </div>
-                      <div className={`diagnosis-badge ${selectedPatient.diagnosis?.includes('Hypertension') ? 'present' : 'absent'}`} style={{ padding: '0.375rem 0.75rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '500', background: selectedPatient.diagnosis?.includes('Hypertension') ? '#d1f4e0' : '#e9ecef', color: selectedPatient.diagnosis?.includes('Hypertension') ? '#0f5132' : '#6c757d' }}>
-                        {selectedPatient.diagnosis?.includes('Hypertension') ? '✓' : '○'} Hypertension
-                      </div>
-                    </div>
                   </section>
 
                   <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>

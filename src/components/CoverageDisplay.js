@@ -29,13 +29,23 @@ import {
 } from '@mui/icons-material';
 import { CriteriaStatus, normalizeStatus } from '../constants';
 import { evaluateCoverage } from '../utils/coverageEvaluator';
+import { getCoverageForDrug, getApplicableCriteria } from '../utils/coverageLogic';
+import { evaluateCriterion, calculateApprovalLikelihood } from '../utils/criteriaEvaluator';
 
 export function CoverageDisplay({ 
+  // New format props
   patientId, 
   medication, 
   dose,
   onGeneratePA,
-  onCriterionOverride 
+  onCriterionOverride,
+  // Old format props (from TherapyModal)
+  insurance,
+  drugName,
+  selectedDose,
+  selectedPatient,
+  drugCoverage,
+  indication
 }) {
   const [loading, setLoading] = useState(true);
   const [coverageResult, setCoverageResult] = useState(null);
@@ -43,9 +53,102 @@ export function CoverageDisplay({
   const [expandedCriteria, setExpandedCriteria] = useState([]);
   const [overrides, setOverrides] = useState({});
 
+  // Determine if using old or new format
+  const useOldFormat = Boolean(insurance && drugName && selectedPatient && drugCoverage);
+  const useNewFormat = Boolean(patientId && medication);
+
   useEffect(() => {
-    evaluateCoverageAsync();
-  }, [patientId, medication, dose]);
+    // Don't evaluate if no dose is selected in old format
+    if (useOldFormat && !selectedDose) {
+      setLoading(false);
+      setCoverageResult(null);
+      return;
+    }
+    
+    if (useOldFormat && selectedDose) {
+      evaluateCoverageOldFormat();
+    } else if (useNewFormat) {
+      evaluateCoverageAsync();
+    }
+  }, [patientId, medication, dose, insurance, drugName, selectedDose, selectedPatient, drugCoverage, indication]);
+
+  const evaluateCoverageOldFormat = () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Get coverage data for this insurance/drug combination
+      const coverage = getCoverageForDrug(drugCoverage, insurance, drugName, indication);
+      
+      if (!coverage) {
+        setError(`No coverage data found for ${drugName} under ${insurance}`);
+        setCoverageResult(null);
+        setLoading(false);
+        return;
+      }
+
+      // If drug is not covered, show that immediately
+      if (coverage.covered === false) {
+        setCoverageResult({
+          drug: { name: drugName },
+          selectedDose: selectedDose,
+          requiresPA: false,
+          coverageStatus: 'not_covered',
+          criteriaResults: [],
+          recommendations: [{
+            priority: 'high',
+            action: 'not_covered',
+            message: coverage.note || 'This medication is not covered under this insurance plan.'
+          }],
+          likelihood: { likelihood: 0, color: 'red', reason: 'Not covered' }
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get applicable criteria for the selected dose
+      const applicableCriteria = selectedDose 
+        ? getApplicableCriteria(coverage, selectedDose, selectedPatient, drugName)
+        : (coverage.paCriteria || []);
+
+      // Evaluate each criterion
+      const criteriaResults = applicableCriteria.map(criterion => {
+        const result = evaluateCriterion(
+          selectedPatient,
+          criterion,
+          coverage,
+          selectedDose,
+          drugName
+        );
+        
+        return {
+          ...result,
+          criterion: criterion.rule || criterion.type,
+          required: criterion.critical || false
+        };
+      });
+
+      // Calculate overall likelihood
+      const likelihood = calculateApprovalLikelihood(criteriaResults);
+
+      setCoverageResult({
+        drug: { name: drugName },
+        selectedDose: selectedDose,
+        requiresPA: coverage.paRequired,
+        coverageStatus: coverage.covered ? 'covered' : 'not_covered',
+        criteriaResults: criteriaResults,
+        recommendations: [],
+        likelihood: likelihood,
+        coverage: coverage
+      });
+    } catch (err) {
+      console.error('Coverage evaluation failed (old format):', err);
+      setError(err.message || 'Failed to evaluate coverage');
+      setCoverageResult(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const evaluateCoverageAsync = async () => {
     setLoading(true);
@@ -149,6 +252,9 @@ export function CoverageDisplay({
 
   // Loading state
   if (loading) {
+    const displayName = drugName || medication?.name || 'medication';
+    const displayDose = selectedDose || dose;
+    
     return (
       <Card>
         <CardContent>
@@ -156,7 +262,7 @@ export function CoverageDisplay({
             Evaluating Coverage Criteria...
           </Typography>
           <Typography variant="body2" color="textSecondary" gutterBottom>
-            Analyzing patient data against {medication?.name || 'medication'} criteria
+            Analyzing patient data against {displayName} criteria
           </Typography>
           <LinearProgress sx={{ mt: 2 }} />
         </CardContent>
@@ -172,7 +278,7 @@ export function CoverageDisplay({
           <Alert 
             severity="error" 
             action={
-              <Button color="inherit" size="small" onClick={evaluateCoverageAsync}>
+              <Button color="inherit" size="small" onClick={useOldFormat ? evaluateCoverageOldFormat : evaluateCoverageAsync}>
                 <Refresh sx={{ mr: 0.5 }} /> Retry
               </Button>
             }
@@ -184,11 +290,19 @@ export function CoverageDisplay({
     );
   }
 
+  // Don't show anything if no dose selected (old format only)
+  if (useOldFormat && !selectedDose) {
+    return null;
+  }
+
   if (!coverageResult) {
     return null;
   }
 
   const { criteriaResults = [], summary, recommendations = [] } = coverageResult;
+  
+  const displayName = coverageResult.drug?.name || drugName || medication?.name || 'medication';
+  const displayDose = coverageResult.selectedDose || selectedDose || dose;
 
   return (
     <Box>
@@ -201,7 +315,7 @@ export function CoverageDisplay({
                 Prior Authorization Assessment
               </Typography>
               <Typography color="textSecondary" gutterBottom>
-                {medication?.name} - {dose}
+                {displayName}{displayDose ? ` - ${displayDose}` : ''}
               </Typography>
               {summary && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
@@ -247,25 +361,19 @@ export function CoverageDisplay({
                   </Typography>
                 </Box>
                 
-                <Box>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Description />}
-                    onClick={() => onGeneratePA && onGeneratePA(coverageResult)}
-                    disabled={!onGeneratePA || approvalScore < 30}
-                    sx={{ mb: 1 }}
-                  >
-                    Generate PA
-                  </Button>
-                  <IconButton 
-                    size="small" 
-                    onClick={evaluateCoverageAsync}
-                    sx={{ display: 'block', mx: 'auto' }}
-                  >
-                    <Refresh />
-                  </IconButton>
-                </Box>
+                {onGeneratePA && (
+                  <Box>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<Description />}
+                      onClick={() => onGeneratePA(coverageResult)}
+                      disabled={approvalScore < 30}
+                    >
+                      Generate PA
+                    </Button>
+                  </Box>
+                )}
               </Box>
             </Grid>
           </Grid>
@@ -337,8 +445,10 @@ export function CoverageDisplay({
           <Divider sx={{ mb: 2 }} />
           
           {criteriaResults.length === 0 ? (
-            <Alert severity="info">
-              No criteria results available. Please check the medication configuration.
+            <Alert severity={coverageResult.coverageStatus === 'not_covered' ? "error" : "info"}>
+              {coverageResult.coverageStatus === 'not_covered' && coverageResult.recommendations?.[0]?.message
+                ? coverageResult.recommendations[0].message
+                : 'No criteria results available. Please check the medication configuration.'}
             </Alert>
           ) : (
             criteriaResults.map((result, index) => {

@@ -495,6 +495,11 @@ export const criteriaEvaluator = {
   }
 };
 
+// Export a stub for evaluatePatientCriteria for compatibility
+export function evaluatePatientCriteria() {
+  throw new Error('evaluatePatientCriteria is not implemented. Use criteriaEvaluator instead.');
+}
+      
 // Legacy wrapper function for backward compatibility
 export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
   // Map old criterion types to new evaluator methods
@@ -509,25 +514,49 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           : `Patient age ${patient.age} below minimum ${criterion.minAge}`
       };
       
-    case 'bmi':
+    case 'bmi': {
       const bmiValue = patient.vitals?.bmi || patient.bmi;
-      const hasComorbidity = Boolean(
-        (patient.diagnosis && patient.diagnosis.length > 0) || 
-        (patient.comorbidities && patient.comorbidities.length > 0)
+      
+      // Check for weight-related comorbidities specifically
+      const weightRelatedComorbidities = [
+        'diabetes',
+        'type 2 diabetes',
+        'hypertension',
+        'dyslipidemia',
+        'hyperlipidemia',
+        'sleep apnea',
+        'obstructive sleep apnea',
+        'cardiovascular',
+        'heart disease',
+        'coronary',
+        'ischemic heart'
+      ];
+      
+      const diagnosisList = [
+        ...(patient.diagnosis || []),
+        ...(patient.comorbidities || [])
+      ].map(d => d.toLowerCase());
+      
+      const hasWeightRelatedComorbidity = diagnosisList.some(diagnosis =>
+        weightRelatedComorbidities.some(comorbidity => diagnosis.includes(comorbidity))
       );
+      
       let bmiMet = false;
       let bmiReason = '';
       
       if (bmiValue >= 30) {
         bmiMet = true;
-        bmiReason = `BMI ${bmiValue} >= 30`;
-      } else if (bmiValue >= 27 && hasComorbidity) {
+        bmiReason = `BMI ${bmiValue} ≥ 30`;
+      } else if (bmiValue >= 27 && hasWeightRelatedComorbidity) {
         bmiMet = true;
-        bmiReason = `BMI ${bmiValue} >= 27 with comorbidities`;
+        const matchedComorbidities = diagnosisList.filter(d => 
+          weightRelatedComorbidities.some(c => d.includes(c))
+        );
+        bmiReason = `BMI ${bmiValue} ≥ 27 with weight-related comorbidity: ${matchedComorbidities[0]}`;
+      } else if (bmiValue >= 27 && bmiValue < 30) {
+        bmiReason = `BMI ${bmiValue} is 27-29.9 but no weight-related comorbidities present`;
       } else {
-        bmiReason = bmiValue < 27 
-          ? `BMI ${bmiValue} < 27` 
-          : `BMI ${bmiValue} is 27-29 without comorbidities`;
+        bmiReason = `BMI ${bmiValue} < 27`;
       }
       
       return {
@@ -535,18 +564,17 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
         criterionType: 'bmi',
         value: bmiValue,
         reason: bmiReason,
-        hasComorbidity
+        hasWeightRelatedComorbidity
       };
+    }
       
-    case 'doseProgression':
+    case 'doseProgression': {
       // Get dose info from drug schedule
       const normalizedDose = String(dose);
       let doseInfo = null;
-      
       if (drug.doseSchedule) {
         doseInfo = drug.doseSchedule.find(d => String(d.value) === normalizedDose);
       }
-      
       if (!doseInfo) {
         return {
           status: CriteriaStatus.NOT_MET,
@@ -554,16 +582,12 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           reason: 'Dose not found in schedule'
         };
       }
-      
       const isStartingDose = doseInfo.phase === 'starting';
-      
       // Check if patient has history with this drug
       const drugHistory = patient.therapyHistory?.find(h => 
         h.drug?.toLowerCase() === drugName?.toLowerCase()
       );
-      
       const isDrugNaive = !drugHistory;
-      
       // Drug-naive patients MUST start with starting dose
       if (isDrugNaive && !isStartingDose) {
         return {
@@ -579,7 +603,6 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           }
         };
       }
-      
       return {
         status: CriteriaStatus.MET,
         criterionType: 'doseProgression',
@@ -594,6 +617,374 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           isStartingDose
         }
       };
+    }
+    
+    case 'lifestyleModification': {
+      const lifestyle = patient.clinicalNotes?.lifestyleModification;
+      const requiredMonths = criterion.requiredDuration || 3;
+      
+      if (!lifestyle || !lifestyle.participated) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          criterionType: 'lifestyleModification',
+          reason: 'No documented lifestyle modification program',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      const durationMet = lifestyle.durationMonths >= requiredMonths;
+      const maxWeightLoss = criterion.maxWeightLoss || 5;
+      const weightLossMet = !criterion.maxWeightLoss || (lifestyle.weightLossAchieved < maxWeightLoss);
+      
+      const met = durationMet && weightLossMet;
+      
+      return {
+        status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'lifestyleModification',
+        reason: met 
+          ? `Completed ${lifestyle.durationMonths}-month program with ${lifestyle.weightLossAchieved}% weight loss`
+          : !durationMet 
+            ? `Only ${lifestyle.durationMonths} months (need ${requiredMonths})`
+            : `Weight loss ${lifestyle.weightLossAchieved}% exceeds threshold`,
+        displayValue: `${lifestyle.durationMonths} months`
+      };
+    }
+    
+    case 'priorTherapies': {
+      const priorAttempts = patient.clinicalNotes?.priorWeightLossAttempts || [];
+      const minTrials = criterion.minTrials || 2;
+      
+      if (priorAttempts.length >= minTrials) {
+        return {
+          status: CriteriaStatus.MET,
+          criterionType: 'priorTherapies',
+          reason: `Documented ${priorAttempts.length} prior weight loss attempts`,
+          displayValue: `${priorAttempts.length} trials`
+        };
+      }
+      
+      return {
+        status: CriteriaStatus.NOT_MET,
+        criterionType: 'priorTherapies',
+        reason: `Only ${priorAttempts.length} trials documented (need ${minTrials})`,
+        displayValue: `${priorAttempts.length}/${minTrials}`
+      };
+    }
+    
+    case 'prescriberQualification': {
+      const prescriber = patient.clinicalNotes?.prescriberQualification;
+      
+      if (!prescriber || !prescriber.qualified) {
+        // If criterion is not marked as critical, treat missing data as not applicable
+        // rather than not met (prescriber qualification is often assumed if not documented)
+        const isCritical = criterion.critical === true;
+        
+        return {
+          status: isCritical ? CriteriaStatus.NOT_MET : CriteriaStatus.NOT_APPLICABLE,
+          criterionType: 'prescriberQualification',
+          reason: isCritical 
+            ? 'Prescriber qualification not documented (required)' 
+            : 'Prescriber qualification not documented (assumed qualified if prescribing)',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      return {
+        status: CriteriaStatus.MET,
+        criterionType: 'prescriberQualification',
+        reason: `Prescriber qualified: ${prescriber.specialty}`,
+        displayValue: prescriber.specialty
+      };
+    }
+    
+    case 'contraindications': {
+      const contraindications = patient.clinicalNotes?.contraindications;
+      
+      if (!contraindications) {
+        const isCritical = criterion.critical === true;
+        return {
+          status: isCritical ? CriteriaStatus.NOT_MET : CriteriaStatus.NOT_APPLICABLE,
+          criterionType: 'contraindications',
+          reason: isCritical
+            ? 'Contraindications screening not documented (required)'
+            : 'Contraindications not documented (optional)',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      // Check for any contraindications
+      const hasContraindication = 
+        contraindications.pregnancy ||
+        contraindications.breastfeeding ||
+        contraindications.mtcHistory ||
+        contraindications.men2 ||
+        contraindications.pancreatitis ||
+        contraindications.familyMtcHistory;
+      
+      return {
+        status: hasContraindication ? CriteriaStatus.NOT_MET : CriteriaStatus.MET,
+        criterionType: 'contraindications',
+        reason: hasContraindication 
+          ? 'Patient has documented contraindications'
+          : 'No contraindications documented',
+        displayValue: hasContraindication ? 'Present' : 'None'
+      };
+    }
+    
+    case 'documentation': {
+      const documentation = patient.clinicalNotes?.documentation;
+      
+      if (!documentation) {
+        const isCritical = criterion.critical === true;
+        return {
+          status: isCritical ? CriteriaStatus.NOT_MET : CriteriaStatus.NOT_APPLICABLE,
+          criterionType: 'documentation',
+          reason: isCritical 
+            ? 'Documentation not present (required)'
+            : 'Documentation not present (not required)',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      const requiredDocs = [
+        'baselineVitals',
+        'bmiChart',
+        'comorbidities',
+        'lifestyleProgram',
+        'priorMedications',
+        'treatmentPlan'
+      ];
+      
+      const presentDocs = requiredDocs.filter(doc => documentation[doc]?.present);
+      const allPresent = presentDocs.length === requiredDocs.length;
+      
+      return {
+        status: allPresent ? CriteriaStatus.MET : CriteriaStatus.PARTIALLY_MET,
+        criterionType: 'documentation',
+        reason: allPresent 
+          ? 'All required documentation present'
+          : `${presentDocs.length}/${requiredDocs.length} documents present`,
+        displayValue: `${presentDocs.length}/${requiredDocs.length}`
+      };
+    }
+    
+    case 'diagnosis': {
+      const requiredDiagnosis = criterion.requiredDiagnosis;
+      const hasDiagnosis = patient.diagnosis?.some(d => 
+        d.toLowerCase().includes(requiredDiagnosis.toLowerCase())
+      );
+      
+      return {
+        status: hasDiagnosis ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'diagnosis',
+        reason: hasDiagnosis 
+          ? `Patient has ${requiredDiagnosis} diagnosis`
+          : `${requiredDiagnosis} diagnosis not found`,
+        displayValue: hasDiagnosis ? 'Documented' : 'Not documented'
+      };
+    }
+    
+    case 'labValue': {
+      const labName = criterion.labName;
+      const minValue = criterion.minValue;
+      const labData = patient.labs?.[labName.toLowerCase().replace(/\s/g, '')];
+      
+      if (!labData) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          criterionType: 'labValue',
+          reason: `${labName} not documented`,
+          displayValue: 'Not documented'
+        };
+      }
+      
+      const labValue = labData.value;
+      const met = labValue >= minValue;
+      
+      return {
+        status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'labValue',
+        reason: met 
+          ? `${labName} ${labValue}${labData.units} >= ${minValue}${labData.units}`
+          : `${labName} ${labValue}${labData.units} < ${minValue}${labData.units}`,
+        displayValue: `${labValue}${labData.units}`
+      };
+    }
+    
+    case 'stepTherapy': {
+      const requiredMed = criterion.requiredMedication;
+      const minDuration = criterion.minDuration || 3; // months
+      
+      if (!requiredMed) {
+        // If no specific medication required, check for min number of trials
+        const minTrials = criterion.minTrials || 1;
+        const priorMeds = patient.clinicalNotes?.priorMedicationTrials || [];
+        
+        return {
+          status: priorMeds.length >= minTrials ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+          criterionType: 'stepTherapy',
+          reason: priorMeds.length >= minTrials
+            ? `${priorMeds.length} prior medication trials documented`
+            : `Only ${priorMeds.length} trials (need ${minTrials})`,
+          displayValue: `${priorMeds.length} trials`
+        };
+      }
+      
+      // Check for specific medication
+      const medHistory = patient.medications?.find(med => 
+        med.name.toLowerCase().includes(requiredMed.toLowerCase())
+      );
+      
+      if (!medHistory) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          criterionType: 'stepTherapy',
+          reason: `No ${requiredMed} trial documented`,
+          displayValue: 'Not tried'
+        };
+      }
+      
+      // Check duration if startDate is available
+      if (medHistory.startDate) {
+        const startDate = new Date(medHistory.startDate);
+        const monthsOnMed = (Date.now() - startDate) / (1000 * 60 * 60 * 24 * 30);
+        const durationMet = monthsOnMed >= minDuration;
+        
+        return {
+          status: durationMet ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+          criterionType: 'stepTherapy',
+          reason: durationMet
+            ? `${requiredMed} tried for ${Math.floor(monthsOnMed)} months`
+            : `${requiredMed} only ${Math.floor(monthsOnMed)} months (need ${minDuration})`,
+          displayValue: `${Math.floor(monthsOnMed)} months`
+        };
+      }
+      
+      // If no start date, assume it's documented but duration unknown
+      return {
+        status: CriteriaStatus.PARTIALLY_MET,
+        criterionType: 'stepTherapy',
+        reason: `${requiredMed} documented but duration not specified`,
+        displayValue: 'Documented'
+      };
+    }
+    
+    case 'efficacy': {
+      // For continuation criteria - check for clinical improvement
+      const a1cBaseline = patient.clinicalNotes?.baselineA1C;
+      const a1cCurrent = patient.labs?.a1c?.value;
+      
+      if (!a1cBaseline || !a1cCurrent) {
+        const isCritical = criterion.critical === true;
+        return {
+          status: isCritical ? CriteriaStatus.NOT_MET : CriteriaStatus.NOT_APPLICABLE,
+          criterionType: 'efficacy',
+          reason: isCritical
+            ? 'Baseline or current A1C not documented (required for continuation)'
+            : 'Baseline or current A1C not documented (optional for continuation)',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      const a1cReduction = a1cBaseline - a1cCurrent;
+      const met = a1cReduction >= 0.5;
+      
+      return {
+        status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'efficacy',
+        reason: met
+          ? `A1C reduced by ${a1cReduction.toFixed(1)}%`
+          : `A1C reduction only ${a1cReduction.toFixed(1)}% (need ≥0.5%)`,
+        displayValue: `${a1cReduction.toFixed(1)}% reduction`
+      };
+    }
+    
+    case 'cvdRisk': {
+      // Check for cardiovascular disease or risk factors
+      const hasCVD = patient.diagnosis?.some(d => 
+        d.toLowerCase().includes('cardiovascular') ||
+        d.toLowerCase().includes('heart disease') ||
+        d.toLowerCase().includes('coronary')
+      );
+      
+      const cvRiskFactors = patient.clinicalNotes?.cvRiskFactors;
+      
+      if (hasCVD || cvRiskFactors?.high) {
+        return {
+          status: CriteriaStatus.MET,
+          criterionType: 'cvdRisk',
+          reason: hasCVD ? 'Documented CVD' : 'High CV risk documented',
+          displayValue: 'Present'
+        };
+      }
+      
+      return {
+        status: CriteriaStatus.NOT_APPLICABLE,
+        criterionType: 'cvdRisk',
+        reason: 'No CVD or high CV risk documented (not required)',
+        displayValue: 'N/A'
+      };
+    }
+    
+    case 'weightLoss': {
+      const minPercentage = criterion.minPercentage || 5;
+      const initialWeightLoss = patient.clinicalNotes?.initialWeightLossPercentage;
+      
+      if (initialWeightLoss === undefined || initialWeightLoss === null) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          criterionType: 'weightLoss',
+          reason: 'Weight loss not documented',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      const met = initialWeightLoss >= minPercentage;
+      
+      return {
+        status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'weightLoss',
+        reason: met
+          ? `Achieved ${initialWeightLoss}% weight loss (≥${minPercentage}%)`
+          : `Only ${initialWeightLoss}% weight loss (need ≥${minPercentage}%)`,
+        displayValue: `${initialWeightLoss}%`
+      };
+    }
+    
+    case 'weightMaintained': {
+      const minPercentage = criterion.minPercentage || 5;
+      const currentWeightLoss = patient.clinicalNotes?.currentWeightLossPercentage;
+      const initialWeightLoss = patient.clinicalNotes?.initialWeightLossPercentage;
+      const maintenanceMonths = patient.clinicalNotes?.weightMaintenanceMonths || 0;
+      
+      if (currentWeightLoss === undefined || currentWeightLoss === null) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          criterionType: 'weightMaintained',
+          reason: 'Current weight loss not documented',
+          displayValue: 'Not documented'
+        };
+      }
+      
+      // For weight maintenance, patient should have:
+      // 1. Initially achieved the target (e.g., ≥5%)
+      // 2. Currently maintaining close to that level (allow some variation, e.g., within 1-2% of initial)
+      const initiallyMetTarget = initialWeightLoss >= minPercentage;
+      const maintainingWeight = currentWeightLoss >= (minPercentage - 1); // Allow 1% fluctuation
+      
+      const met = initiallyMetTarget && maintainingWeight;
+      
+      return {
+        status: met ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'weightMaintained',
+        reason: met
+          ? `Achieved ${initialWeightLoss}% initially, maintaining ${currentWeightLoss}% for ${maintenanceMonths} months`
+          : !initiallyMetTarget
+            ? `Did not achieve initial target of ${minPercentage}%`
+            : `Weight regain - now at ${currentWeightLoss}% (from ${initialWeightLoss}%)`,
+        displayValue: `${currentWeightLoss}%`
+      };
+    }
       
     default:
       return {
@@ -610,11 +1001,41 @@ export function getSimpleStatus(result) {
 }
 
 export function calculateApprovalLikelihood(criteriaResults) {
-  if (!criteriaResults || criteriaResults.length === 0) return 0;
+  if (!criteriaResults || criteriaResults.length === 0) {
+    return { likelihood: 0, color: 'red', reason: 'No criteria evaluated' };
+  }
   
   const metCount = criteriaResults.filter(r => 
     r.status === CriteriaStatus.MET
   ).length;
   
-  return Math.round((metCount / criteriaResults.length) * 100);
+  const notMetCount = criteriaResults.filter(r =>
+    r.status === CriteriaStatus.NOT_MET
+  ).length;
+  
+  const partialCount = criteriaResults.filter(r =>
+    r.status === CriteriaStatus.PARTIALLY_MET
+  ).length;
+  
+  const likelihood = Math.round((metCount / criteriaResults.length) * 100);
+  
+  let color = 'red';
+  let reason = '';
+  
+  if (likelihood >= 80) {
+    color = 'green';
+    reason = `${metCount}/${criteriaResults.length} criteria met`;
+  } else if (likelihood >= 60) {
+    color = 'yellow';
+    reason = `${metCount}/${criteriaResults.length} criteria met, ${notMetCount} not met`;
+  } else {
+    color = 'red';
+    reason = `Only ${metCount}/${criteriaResults.length} criteria met, ${notMetCount} not met`;
+  }
+  
+  if (partialCount > 0) {
+    reason += `, ${partialCount} partially met`;
+  }
+  
+  return { likelihood, color, reason };
 }
