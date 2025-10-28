@@ -38,6 +38,7 @@ class MonitoringService {
     
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
       console.log(`[${level.toUpperCase()}] ${eventName}`, properties);
     }
     
@@ -219,9 +220,11 @@ class MonitoringService {
       
       // For now, just log that we would send
       if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.log('Would send to analytics:', event);
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Failed to send analytics:', error);
     }
   }
