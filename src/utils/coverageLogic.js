@@ -247,11 +247,11 @@ export function getApplicableCriteria(drug, dose, patient, drugName) {
   }
   
   const doseInfo = getDoseInfo(drug, evaluationDose);
-  let applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
+  const applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
   
   // For patients already on medication at maintenance dose, apply maintenance criteria
   // (includes weightLoss, weightMaintained, etc.)
-  const isContinuation = isCurrentlyOnMedication && drugHistory.currentDose === evaluationDose;
+  // Note: isContinuation logic removed as it was unused
   
   // Don't filter out criteria for continuations - they need to demonstrate ongoing efficacy
   // Remove the old logic that filtered to only basic criteria
