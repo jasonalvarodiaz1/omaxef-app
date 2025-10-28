@@ -11,7 +11,7 @@ import { normalizeStatus, CriteriaStatus } from '../constants';
  * @param {string} dose - Dose value (e.g., '0.25', '0.5')
  * @returns {Array} Array of criteria objects
  */
-export function getCriteriaForMedication(medicationId, dose) {
+export function getCriteriaForMedication(medicationId, _dose) {
   const medId = (medicationId || '').toLowerCase();
   
   // Wegovy (semaglutide for weight management)
