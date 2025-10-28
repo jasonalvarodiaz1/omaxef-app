@@ -276,7 +276,7 @@ export const criteriaEvaluator = {
   },
 
   // Enhanced evaluateMaintenance with confidence
-  evaluateMaintenance: async (patientData, criterion, fhirHelpers) => {
+  evaluateMaintenance: async (patientData, criterion, _fhirHelpers) => {
     try {
       let confidence = 1.0;
       const evidence = [];
@@ -337,7 +337,7 @@ export const criteriaEvaluator = {
   },
 
   // Enhanced evaluateDoseProgression with confidence
-  evaluateDoseProgression: async (patientData, criterion, fhirHelpers) => {
+  evaluateDoseProgression: async (patientData, criterion, _fhirHelpers) => {
     try {
       let confidence = 1.0;
       const evidence = [];
@@ -366,7 +366,7 @@ export const criteriaEvaluator = {
       const expectedProgression = criterion.expectedProgression || [];
       
       let progressionMet = true;
-      let progressionDetails = [];
+      const progressionDetails = [];
       
       for (let i = 0; i < expectedProgression.length && i < doses.length; i++) {
         if (doses[i] < expectedProgression[i]) {
