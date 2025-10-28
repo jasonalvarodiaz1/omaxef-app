@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // Coverage lookup and PA criteria evaluation logic
 import React from 'react';
 import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
@@ -143,7 +144,7 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
   
   // For dual-indication drugs (Ozempic, Mounjaro), modify PA criteria based on indication
   if (indication === 'weight_loss' && (drugName === 'Ozempic' || drugName === 'Mounjaro')) {
-    console.log(`Modifying ${drugName} PA criteria for weight loss indication`);
+    // Debug: console.log(`Modifying ${drugName} PA criteria for weight loss indication`);
     
     // Medicare and Medicare Part D do NOT cover weight loss - deny immediately
     if (insurance.includes('Medicare')) {
@@ -226,7 +227,7 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
     coverage.note = `OFF-LABEL USE for weight loss. ${coverage.note || ''} Insurance may deny coverage for weight loss indication. Higher denial risk than diabetes indication.`;
   }
   
-  console.log('Returning coverage:', coverage);
+  // Debug: console.log('Returning coverage:', coverage);
   return coverage;
 }
 
