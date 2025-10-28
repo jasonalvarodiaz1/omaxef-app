@@ -13,7 +13,8 @@ class MonitoringService {
   // Log levels: error, warn, info, debug
   shouldLog(level) {
     const levels = { error: 0, warn: 1, info: 2, debug: 3 };
-    return levels[level] <= levels[this.logLevel];
+    const currentLogLevel = process.env.REACT_APP_LOG_LEVEL || 'info';
+    return levels[level] <= levels[currentLogLevel];
   }
   
   // Track an event
@@ -167,7 +168,7 @@ class MonitoringService {
   // Sanitize properties to remove PHI
   sanitizeProperties(properties) {
     const sanitized = {};
-    const phiFields = ['patientId', 'mrn', 'name', 'dob', 'ssn', 'address', 'phone', 'email'];
+    const phiFields = ['patientid', 'mrn', 'name', 'dob', 'ssn', 'address', 'phone', 'email'];
     
     for (const [key, value] of Object.entries(properties)) {
       if (phiFields.some(field => key.toLowerCase().includes(field))) {
