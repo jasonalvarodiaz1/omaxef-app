@@ -3,6 +3,110 @@ import React from 'react';
 import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
 import { normalizeStatus, CriteriaStatus } from '../constants';
 
+/**
+ * Get PA criteria for a specific medication and dose
+ * This function provides criteria definitions for medications
+ * @param {string} medicationId - Medication code or name (e.g., 'wegovy', 'ozempic')
+ * @param {string} dose - Dose value (e.g., '0.25', '0.5')
+ * @returns {Array} Array of criteria objects
+ */
+export function getCriteriaForMedication(medicationId, dose) {
+  const medId = (medicationId || '').toLowerCase();
+  
+  // Wegovy (semaglutide for weight management)
+  if (medId === 'wegovy' || medId === 'semaglutide') {
+    return [
+      {
+        type: 'bmi',
+        threshold: 27,
+        critical: true,
+        required: true,
+        description: 'BMI ≥ 27 with weight-related comorbidity or BMI ≥ 30'
+      },
+      {
+        type: 'age',
+        min: 18,
+        critical: true,
+        required: true,
+        description: 'Patient must be 18 years or older'
+      },
+      {
+        type: 'doseProgression',
+        critical: true,
+        required: true,
+        description: 'Appropriate dose progression for GLP-1 therapy'
+      },
+      {
+        type: 'contraindications',
+        critical: true,
+        required: true,
+        description: 'No absolute contraindications present'
+      },
+      {
+        type: 'documentation',
+        required: ['clinical_note', 'consent_form'],
+        critical: true,
+        description: 'Required documentation complete'
+      }
+    ];
+  }
+  
+  // Ozempic (semaglutide for diabetes)
+  if (medId === 'ozempic') {
+    return [
+      {
+        type: 'age',
+        min: 18,
+        critical: true,
+        required: true,
+        description: 'Patient must be 18 years or older'
+      },
+      {
+        type: 'documentation',
+        required: ['diabetes_diagnosis', 'a1c_result'],
+        critical: true,
+        description: 'Type 2 diabetes diagnosis and recent A1C required'
+      },
+      {
+        type: 'doseProgression',
+        critical: true,
+        required: true,
+        description: 'Appropriate dose progression'
+      }
+    ];
+  }
+  
+  // Mounjaro (tirzepatide)
+  if (medId === 'mounjaro' || medId === 'tirzepatide') {
+    return [
+      {
+        type: 'age',
+        min: 18,
+        critical: true,
+        required: true,
+        description: 'Patient must be 18 years or older'
+      },
+      {
+        type: 'bmi',
+        threshold: 27,
+        critical: true,
+        required: true,
+        description: 'BMI criteria for weight management therapy'
+      },
+      {
+        type: 'documentation',
+        required: ['clinical_note'],
+        critical: true,
+        description: 'Clinical documentation required'
+      }
+    ];
+  }
+  
+  // Default: return empty array if medication not found
+  console.warn(`No criteria defined for medication: ${medicationId}`);
+  return [];
+}
+
 export function getCoverageForDrug(drugCoverage, insurance, drugName, indication) {
   console.log('getCoverageForDrug called:', { insurance, drugName, indication });
   console.log('drugCoverage structure:', drugCoverage);

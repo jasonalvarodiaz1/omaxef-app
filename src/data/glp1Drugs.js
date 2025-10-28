@@ -87,5 +87,59 @@ export const glp1Drugs = [
         stepTherapy: false
       }
     ]
+  },
+  {
+    id: "wegovy",
+    name: "Wegovy",
+    generic: "semaglutide",
+    ndc: "0169-4517-01",
+    coverageRules: [
+      {
+        insurance: "Medicare",
+        isCovered: false,
+        paRequired: false,
+        paQuestions: [],
+        preferred: false,
+        stepTherapy: false,
+        notes: "Medicare does not cover weight loss medications"
+      },
+      {
+        insurance: "Medicaid",
+        isCovered: false,
+        paRequired: false,
+        paQuestions: [],
+        preferred: false,
+        stepTherapy: false,
+        notes: "Most Medicaid plans exclude weight loss medications"
+      },
+      {
+        insurance: "Commercial",
+        isCovered: true,
+        paRequired: true,
+        paQuestions: [
+          "BMI ≥ 27 with weight-related comorbidity or BMI ≥ 30?",
+          "Documentation of previous weight loss attempts?",
+          "No contraindications to GLP-1 therapy?",
+          "Patient consent obtained?"
+        ],
+        preferred: false,
+        stepTherapy: false,
+        notes: "Requires PA with BMI documentation and comorbidity assessment"
+      },
+      {
+        insurance: "Blue Cross",
+        isCovered: true,
+        paRequired: true,
+        paQuestions: [
+          "BMI ≥ 27 with comorbidity or BMI ≥ 30?",
+          "Clinical documentation of obesity management plan?",
+          "A1C < 6.5% (to exclude diabetes)?",
+          "Trial of lifestyle modifications?"
+        ],
+        preferred: false,
+        stepTherapy: true,
+        notes: "Step therapy may require trial of other weight loss medications first"
+      }
+    ]
   }
 ];
