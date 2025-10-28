@@ -401,5 +401,69 @@ describe('Coverage Evaluator Integration Tests', () => {
       // Should have re-evaluated, not used stale cache
       expect(result.summary).not.toBe('Stale cache');
     });
+
+    it('should not cache failed evaluation results', async () => {
+      coverageLogic.getCriteriaForMedication = jest.fn().mockImplementation(() => {
+        throw new Error('Coverage logic error');
+      });
+
+      // First call should fail and return an error result
+      const firstResult = await evaluateCoverage(
+        'test-patient',
+        { name: 'Wegovy', code: 'wegovy' },
+        '0.25'
+      );
+
+      expect(firstResult.error).toBeDefined();
+      
+      // Cache.set should NOT have been called for the evaluation (only for patientData)
+      const evaluationCacheCall = mockCacheManager.set.mock.calls.find(
+        call => call[0] === 'evaluations'
+      );
+      expect(evaluationCacheCall).toBeUndefined();
+      
+      // Reset the mock to succeed on second call
+      mockCacheManager.set.mockClear();
+      coverageLogic.getCriteriaForMedication = jest.fn().mockReturnValue([
+        { type: 'bmi', threshold: 27, critical: true, description: 'BMI' }
+      ]);
+
+      // Second call should succeed and cache the result
+      const secondResult = await evaluateCoverage(
+        'test-patient',
+        { name: 'Wegovy', code: 'wegovy' },
+        '0.25'
+      );
+
+      expect(secondResult.error).toBeUndefined();
+      expect(mockCacheManager.set).toHaveBeenCalled();
+    });
+
+    it('should not use cached error results', async () => {
+      const cachedErrorResult = {
+        error: 'Previous evaluation failed',
+        criteriaResults: [],
+        summary: 'Cached error',
+        approvalLikelihood: 0,
+        recommendations: [],
+        timestamp: Date.now()
+      };
+
+      mockCacheManager.get.mockResolvedValue(cachedErrorResult);
+      coverageLogic.getCriteriaForMedication = jest.fn().mockReturnValue([
+        { type: 'bmi', threshold: 27, critical: true, description: 'BMI' }
+      ]);
+
+      const result = await evaluateCoverage(
+        'test-patient',
+        { name: 'Wegovy', code: 'wegovy' },
+        '0.25'
+      );
+
+      // Should have ignored cached error and re-evaluated
+      expect(result.summary).not.toBe('Cached error');
+      expect(result.error).toBeUndefined();
+      expect(result.approvalLikelihood).toBeGreaterThanOrEqual(0);
+    });
   });
 });
