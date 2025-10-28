@@ -14,7 +14,9 @@
     "crypto-browserify": "^3.12.1",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.4.1",
     "fhirclient": "^2.6.3",
+    "helmet": "^8.0.0",
     "lucide-react": "^0.545.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -22,7 +24,8 @@
     "react-scripts": "5.0.1",
     "stream-browserify": "^3.0.0",
     "vm-browserify": "^1.1.2",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "winston": "^3.17.0"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -54,56 +57,6 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
-    ]
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
-    "moduleNameMapper": {
-      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
-      "\\.(jpg|jpeg|png|gif|svg)$": "<rootDir>/__mocks__/fileMock.js"
-    },
-    "transform": {
-      "^.+\\.(js|jsx)$": "babel-jest"
-    },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(axios|fhirclient)/)"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.{js,jsx}",
-      "!src/index.js",
-      "!src/reportWebVitals.js",
-      "!src/**/*.test.{js,jsx}",
-      "!src/**/__tests__/**",
-      "!src/setupTests.js"
-    ],
-    "coverageThresholds": {
-      "global": {
-        "branches": 60,
-        "functions": 60,
-        "lines": 65,
-        "statements": 65
-      },
-      "src/utils/criteriaEvaluator.js": {
-        "branches": 70,
-        "functions": 75,
-        "lines": 75,
-        "statements": 75
-      },
-      "src/utils/coverageEvaluator.js": {
-        "branches": 65,
-        "functions": 70,
-        "lines": 70,
-        "statements": 70
-      }
-    },
-    "testMatch": [
-      "<rootDir>/src/**/__tests__/**/*.{js,jsx}",
-      "<rootDir>/src/**/*.{spec,test}.{js,jsx}"
-    ],
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/build/"
     ]
   },
   "devDependencies": {

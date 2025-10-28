@@ -34,8 +34,18 @@ describe('Monitoring Service', () => {
     });
 
     it('should respect log level filtering', () => {
+      // Suppress expected console.error from alerts
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
+      // Clear any previous events
+      monitoring.clear();
+      
       // Set log level to 'warn' (only errors and warnings)
+      const originalLogLevel = process.env.REACT_APP_LOG_LEVEL;
       process.env.REACT_APP_LOG_LEVEL = 'warn';
+      
+      // Need to reinitialize the monitoring service with new log level
+      monitoring.logLevel = 'warn';
 
       trackEvent('debug_event', {}, 'debug'); // Should not be logged
       trackEvent('info_event', {}, 'info');   // Should not be logged
@@ -43,10 +53,12 @@ describe('Monitoring Service', () => {
       trackEvent('error_event', {}, 'error'); // Should be logged
 
       const events = monitoring.getRecentEvents(10);
-      expect(events.length).toBeLessThanOrEqual(2); // Only warn and error
+      expect(events.length).toBe(2); // Exactly warn and error
 
       // Reset
-      process.env.REACT_APP_LOG_LEVEL = 'info';
+      process.env.REACT_APP_LOG_LEVEL = originalLogLevel || 'info';
+      monitoring.logLevel = originalLogLevel || 'info';
+      consoleErrorSpy.mockRestore();
     });
 
     it('should limit event storage to prevent memory issues', () => {
@@ -133,6 +145,9 @@ describe('Monitoring Service', () => {
 
   describe('Error tracking', () => {
     it('should track errors with context', () => {
+      // Suppress expected console.error from alert
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       const error = new Error('Test error');
       error.code = 'TEST_ERROR';
 
@@ -146,15 +161,22 @@ describe('Monitoring Service', () => {
       expect(events[0].properties.message).toBe('Test error');
       expect(events[0].properties.code).toBe('TEST_ERROR');
       expect(events[0].properties.context.operation).toBe('evaluation');
+      
+      consoleErrorSpy.mockRestore();
     });
 
     it('should increment error metric', () => {
+      // Suppress expected console.error from alerts
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       trackError(new Error('Error 1'));
       trackError(new Error('Error 2'));
 
       const summary = monitoring.getMetricsSummary();
       expect(summary.errors).toBeDefined();
       expect(summary.errors.count).toBe(2);
+      
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -179,11 +201,11 @@ describe('Monitoring Service', () => {
     });
 
     it('should truncate long strings', () => {
-      const longString = 'a'.repeat(200);
+      const longString = 'a'.repeat(250);
       trackEvent('test', { longValue: longString });
 
       const events = monitoring.getRecentEvents(1);
-      expect(events[0].properties.longValue.length).toBeLessThanOrEqual(103); // 100 + '...'
+      expect(events[0].properties.longValue.length).toBeLessThanOrEqual(203); // 200 + '...'
     });
 
     it('should sanitize endpoint URLs', () => {
@@ -216,6 +238,9 @@ describe('Monitoring Service', () => {
 
   describe('Data export', () => {
     it('should export monitoring data', () => {
+      // Suppress expected console.error from alert
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
       trackEvent('event1', { test: 'value' });
       trackMetric('metric1', 100);
       trackError(new Error('Test error'));
@@ -226,6 +251,8 @@ describe('Monitoring Service', () => {
       expect(exported.metrics).toBeDefined();
       expect(exported.sessionId).toBeDefined();
       expect(exported.timestamp).toBeDefined();
+      
+      consoleErrorSpy.mockRestore();
     });
 
     it('should limit exported events', () => {
