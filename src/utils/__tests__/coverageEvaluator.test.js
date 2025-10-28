@@ -165,6 +165,9 @@ describe('Coverage Evaluator Integration Tests', () => {
     });
 
     it('should handle evaluation errors gracefully', async () => {
+      // Suppress expected console.warn for this test
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
       coverageLogic.getCriteriaForMedication = jest.fn().mockImplementation(() => {
         throw new Error('Coverage logic error');
       });
@@ -183,6 +186,15 @@ describe('Coverage Evaluator Integration Tests', () => {
           action: 'manual_review'
         })
       );
+      
+      // Verify the warning was logged (even though we suppressed it)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error fetching criteria for medication wegovy'),
+        'Coverage logic error'
+      );
+      
+      // Restore console.warn
+      warnSpy.mockRestore();
     });
 
     it('should handle no criteria configured', async () => {
@@ -403,6 +415,9 @@ describe('Coverage Evaluator Integration Tests', () => {
     });
 
     it('should not cache failed evaluation results', async () => {
+      // Suppress expected console.warn for this test
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      
       coverageLogic.getCriteriaForMedication = jest.fn().mockImplementation(() => {
         throw new Error('Coverage logic error');
       });
@@ -421,6 +436,9 @@ describe('Coverage Evaluator Integration Tests', () => {
         call => call[0] === 'evaluations'
       );
       expect(evaluationCacheCall).toBeUndefined();
+      
+      // Restore console.warn before continuing
+      warnSpy.mockRestore();
       
       // Reset the mock to succeed on second call
       mockCacheManager.set.mockClear();
