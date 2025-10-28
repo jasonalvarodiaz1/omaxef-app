@@ -49,7 +49,16 @@ export async function evaluateCoverage(patientId, medication, dose) {
         action: 'manual_review',
         message: 'Automated evaluation failed. Please perform manual review.',
         steps: ['Review patient chart', 'Contact payer for requirements']
-      }]
+      }],
+      metadata: {
+        evaluationDate: new Date().toISOString(),
+        medication: medication?.name || medication?.code || 'Unknown',
+        dose,
+        patientId,
+        metCriteria: 0,
+        totalCriteria: 0,
+        averageConfidence: 0
+      }
     };
   }
 }
@@ -76,7 +85,16 @@ async function performEvaluation(patientId, medication, dose) {
         priority: 'high',
         action: 'configuration',
         message: 'No criteria configured for this medication. Contact system administrator.'
-      }]
+      }],
+      metadata: {
+        evaluationDate: new Date().toISOString(),
+        medication: medication?.name || medication?.code || 'Unknown',
+        dose,
+        patientId,
+        metCriteria: 0,
+        totalCriteria: 0,
+        averageConfidence: 0
+      }
     };
   }
   
@@ -257,6 +275,10 @@ async function performEvaluation(patientId, medication, dose) {
     });
   }
   
+  const averageConfidence = criteriaResults.length
+    ? criteriaResults.reduce((sum, r) => sum + (r.confidence || 0), 0) / criteriaResults.length
+    : 0;
+  
   return {
     criteriaResults,
     summary,
@@ -269,7 +291,7 @@ async function performEvaluation(patientId, medication, dose) {
       patientId,
       metCriteria: metCount,
       totalCriteria: totalCount,
-      averageConfidence: criteriaResults.reduce((sum, r) => sum + (r.confidence || 0), 0) / criteriaResults.length
+      averageConfidence
     }
   };
 }
