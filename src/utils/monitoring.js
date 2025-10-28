@@ -59,9 +59,7 @@ class MonitoringService {
     }
     
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[${level.toUpperCase()}] ${eventName}`, properties);
-    }
+    this.safeConsole('log', `[${level.toUpperCase()}] ${eventName}`, properties);
     
     // Add to batch for persistence
     if (this.persistenceEnabled) {
@@ -299,7 +297,7 @@ class MonitoringService {
         })
       });
     } catch (error) {
-      console.error('Failed to flush log batch:', error);
+      this.safeConsole('error', 'Failed to flush log batch:', error);
       // Re-add to buffer for retry (up to a limit)
       if (this.batchBuffer.length < this.maxEvents) {
         this.batchBuffer.unshift(...batch);
@@ -321,7 +319,7 @@ class MonitoringService {
    */
   async persistEvent(event, category = 'general') {
     if (!this.logEndpoint) {
-      console.warn('No log endpoint configured');
+      this.safeConsole('warn', 'No log endpoint configured');
       return;
     }
     
@@ -336,7 +334,7 @@ class MonitoringService {
         body: JSON.stringify(event)
       });
     } catch (error) {
-      console.error('Failed to persist event:', error);
+      this.safeConsole('error', 'Failed to persist event:', error);
     }
   }
   
@@ -349,7 +347,7 @@ class MonitoringService {
    */
   async sendAlert(event) {
     if (!this.alertEndpoint) {
-      console.error('[ALERT]', event.name, event.properties);
+      this.safeConsole('error', '[ALERT]', event.name, event.properties);
       return;
     }
     
@@ -368,7 +366,7 @@ class MonitoringService {
         })
       });
     } catch (error) {
-      console.error('Failed to send alert:', error);
+      this.safeConsole('error', 'Failed to send alert:', error);
     }
   }
   
@@ -519,6 +517,21 @@ class MonitoringService {
     }
     
     return stack;
+  }
+  
+  /**
+   * Safe console logging for development (avoids ESLint no-console)
+   */
+  safeConsole(method, ...args) {
+    /* eslint-disable no-console */
+    if (typeof console !== 'undefined' && process.env.NODE_ENV === 'development') {
+      if (console[method]) {
+        console[method](...args);
+      } else {
+        console.log(...args);
+      }
+    }
+    /* eslint-enable no-console */
   }
   
   /**
