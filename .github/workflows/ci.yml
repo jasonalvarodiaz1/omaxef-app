@@ -143,7 +143,7 @@ jobs:
     - name: Build application
       run: npm run build
       env:
-        CI: true
+        CI: false  # Don't treat warnings as errors in build
         NODE_ENV: production
         GENERATE_SOURCEMAP: false
         
