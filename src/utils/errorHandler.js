@@ -31,7 +31,7 @@ export const errorRecoveryStrategies = {
   },
   CRITERIA_EVAL_ERROR: {
     retry: false,
-    fallback: 'MARK_AS_PENDING_REVIEW',
+    fallback: 'RETHROW',
     userMessage: 'Some criteria require manual review.'
   },
   NETWORK_ERROR: {

@@ -1,4 +1,4 @@
-import { evaluateCoverage } from '../coverageEvaluator';
+import { evaluateCoverage, __setCacheManager, __resetCacheManager } from '../coverageEvaluator';
 import { CriteriaStatus } from '../../constants';
 import { CacheManager } from '../cacheManager';
 import * as coverageLogic from '../coverageLogic';
@@ -20,6 +20,14 @@ describe('Coverage Evaluator Integration Tests', () => {
     };
     
     CacheManager.mockImplementation(() => mockCacheManager);
+    
+    // Inject the mock into the module
+    __setCacheManager(mockCacheManager);
+  });
+  
+  afterEach(() => {
+    // Reset for next test
+    __resetCacheManager();
   });
 
   describe('Complete evaluation flow', () => {
