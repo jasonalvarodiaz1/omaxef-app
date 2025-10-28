@@ -128,9 +128,14 @@ async function performEvaluation(patientId, medication, dose) {
     } else if (typeof getApplicableCriteria === 'function') {
       // Fallback to legacy getApplicableCriteria if getCriteriaForMedication doesn't exist
       // This maintains backward compatibility
-      const drug = getCoverageForDrug(null, patientData.insurance, medication.name, null);
+      // Note: getCoverageForDrug expects drugCoverage data, pass null for now
+      // In production, this should be replaced with actual drug coverage data
+      const drug = getCoverageForDrug(null, patientData?.insurance, medication.name, null);
       if (drug) {
         applicableCriteria = getApplicableCriteria(drug, dose, patientData, medication.name);
+      } else {
+        // No drug coverage found in legacy system
+        console.warn(`No drug coverage found for ${medicationId} in legacy system`);
       }
     }
   } catch (error) {
@@ -145,9 +150,33 @@ async function performEvaluation(patientId, medication, dose) {
     applicableCriteria = [];
   }
   
-  // If there was an error fetching criteria, throw it to trigger error recovery
+  // If there was an error fetching criteria, return error response instead of throwing
   if (criteriaFetchError) {
-    throw criteriaFetchError;
+    return {
+      error: `Failed to fetch criteria for ${medicationId}: ${criteriaFetchError.message}`,
+      criteriaResults: [],
+      summary: 'Coverage evaluation could not be performed. Manual review required.',
+      approvalLikelihood: 0,
+      recommendations: [{
+        priority: 'high',
+        action: 'manual_review',
+        message: `Unable to retrieve coverage criteria for ${medicationId}. Please verify medication configuration and try again.`,
+        steps: [
+          'Verify medication code/name is correct',
+          'Check coverage criteria configuration',
+          'Perform manual review of PA requirements'
+        ]
+      }],
+      metadata: {
+        evaluationDate: new Date().toISOString(),
+        medication: medication?.name || medication?.code || medicationId,
+        dose,
+        patientId,
+        metCriteria: 0,
+        totalCriteria: 0,
+        averageConfidence: 0
+      }
+    };
   }
   
   if (!applicableCriteria || applicableCriteria.length === 0) {
