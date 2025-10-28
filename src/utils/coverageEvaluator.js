@@ -87,12 +87,13 @@ export async function evaluateCoverage(patientId, medication, dose) {
 }
 
 async function performEvaluation(patientId, medication, dose) {
-  // Mock patient data - replace with actual FHIR data fetching
-  const patientData = await fetchPatientData(patientId);
-  
-  // Get applicable criteria for this medication
-  // Handle both medication.code and medication.name for flexibility
-  const medicationId = medication?.code || medication?.name;
+  try {
+    // Mock patient data - replace with actual FHIR data fetching
+    const patientData = await fetchPatientData(patientId);
+    
+    // Get applicable criteria for this medication
+    // Handle both medication.code and medication.name for flexibility
+    const medicationId = medication?.code || medication?.name;
   
   if (!medicationId) {
     return {
@@ -119,15 +120,34 @@ async function performEvaluation(patientId, medication, dose) {
   
   // Call getCriteriaForMedication if it exists (will be mocked in tests)
   let applicableCriteria = [];
-  if (coverageLogic.getCriteriaForMedication) {
-    applicableCriteria = coverageLogic.getCriteriaForMedication(medicationId, dose);
-  } else {
-    // Fallback to legacy getApplicableCriteria if getCriteriaForMedication doesn't exist
-    // This maintains backward compatibility
-    const drug = getCoverageForDrug(null, patientData.insurance, medication.name, null);
-    if (drug) {
-      applicableCriteria = getApplicableCriteria(drug, dose, patientData, medication.name);
+  let criteriaFetchError = null;
+  
+  try {
+    if (typeof coverageLogic.getCriteriaForMedication === 'function') {
+      applicableCriteria = coverageLogic.getCriteriaForMedication(medicationId, dose);
+    } else if (typeof getApplicableCriteria === 'function') {
+      // Fallback to legacy getApplicableCriteria if getCriteriaForMedication doesn't exist
+      // This maintains backward compatibility
+      const drug = getCoverageForDrug(null, patientData.insurance, medication.name, null);
+      if (drug) {
+        applicableCriteria = getApplicableCriteria(drug, dose, patientData, medication.name);
+      }
     }
+  } catch (error) {
+    console.warn(`Error fetching criteria for medication ${medicationId}:`, error.message);
+    criteriaFetchError = error;
+    // Continue with empty criteria array, but track that an error occurred
+    applicableCriteria = [];
+  }
+  
+  // Ensure applicableCriteria is always an array
+  if (!Array.isArray(applicableCriteria)) {
+    applicableCriteria = [];
+  }
+  
+  // If there was an error fetching criteria, throw it to trigger error recovery
+  if (criteriaFetchError) {
+    throw criteriaFetchError;
   }
   
   if (!applicableCriteria || applicableCriteria.length === 0) {
@@ -351,6 +371,10 @@ async function performEvaluation(patientId, medication, dose) {
       averageConfidence
     }
   };
+  } catch (error) {
+    console.warn(`Error in performEvaluation for patientId=${patientId}, medication=${JSON.stringify(medication)}, dose=${dose}:`, error.message);
+    throw error; // Re-throw to be handled by withErrorRecovery
+  }
 }
 
 // Mock function - replace with actual FHIR data fetching
