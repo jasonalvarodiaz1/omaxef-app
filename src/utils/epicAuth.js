@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // Epic SMART on FHIR Authentication Utilities
 
 const EPIC_CONFIG = {
@@ -28,7 +29,7 @@ export const launchEpicAuth = () => {
   });
   
   const authUrl = `${EPIC_CONFIG.authUrl}?${authParams.toString()}`;
-  console.log('Auth URL:', authUrl); // Debug
+  // console.log('Auth URL:', authUrl); // Debug
   window.location.href = authUrl;
 };
 
