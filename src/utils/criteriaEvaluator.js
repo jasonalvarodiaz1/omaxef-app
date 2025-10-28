@@ -1,11 +1,11 @@
-import { CriteriaStatus, normalizeStatus } from '../constants';
-import { withErrorRecovery, CriteriaEvaluationError } from './errorHandler';
+import { CriteriaStatus } from '../constants';
+import { CriteriaEvaluationError } from './errorHandler';
 
 export const criteriaEvaluator = {
   // Enhanced evaluateAge with confidence scoring
   evaluateAge: async (patientData, criterion) => {
     try {
-      let confidence = 1.0;
+      const confidence = 1.0;
       const evidence = [];
       
       if (!patientData.birthDate) {
