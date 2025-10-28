@@ -7,18 +7,68 @@
 
 # testing
 /coverage
+*.lcov
 
 # production
 /build
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env.local
+
+# IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# PHI and sensitive data (CRITICAL)
+**/phi-data/
+**/patient-exports/
+**/*-phi.json
+**/*-patient-data.json
+
+# Secrets (CRITICAL)
+secrets/
+*.key
+*.pem
+*.p12
+client_secret*.json
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Test artifacts
+junit.xml
+test-results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
