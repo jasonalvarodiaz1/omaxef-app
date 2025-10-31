@@ -48,12 +48,7 @@ export const criteriaEvaluator = {
           : `Patient age ${age} below minimum of ${criterion.minimum}`,
         displayValue: `${age} years`,
         confidence,
-        evidence,
-        details: {
-          age,
-          minimum: criterion.minimum,
-          birthDate: patientData.birthDate
-        }
+        evidence
       };
     } catch (error) {
       throw new CriteriaEvaluationError(
@@ -125,12 +120,6 @@ export const criteriaEvaluator = {
         displayValue: `${bmiValue} kg/m²`,
         confidence,
         evidence,
-        details: {
-          value: bmiValue,
-          threshold: criterion.threshold,
-          measurementDate: measurementDate.toISOString(),
-          dataAge
-        }
       };
 
       // Add recommendation if not met
@@ -241,15 +230,6 @@ export const criteriaEvaluator = {
         displayValue: `${percentageLoss.toFixed(1)}% loss`,
         confidence,
         evidence,
-        details: {
-          percentageLoss: percentageLoss.toFixed(1),
-          targetPercentage: criterion.targetPercentage,
-          firstWeight,
-          lastWeight,
-          measurementCount: sortedWeights.length,
-          measurementSpan: Math.round((new Date(sortedWeights[sortedWeights.length - 1].effectiveDateTime) - 
-                                       new Date(sortedWeights[0].effectiveDateTime)) / (1000 * 60 * 60 * 24))
-        }
       };
 
       if (!met) {
@@ -320,12 +300,6 @@ export const criteriaEvaluator = {
         displayValue: `${monthsOnMedication.toFixed(1)} months`,
         confidence,
         evidence,
-        details: {
-          monthsOnMedication: monthsOnMedication.toFixed(1),
-          minimumMonths: criterion.minimumMonths,
-          startDate: medicationData.startDate,
-          medication: criterion.medication
-        }
       };
     } catch (error) {
       throw new CriteriaEvaluationError(
@@ -392,12 +366,6 @@ export const criteriaEvaluator = {
         displayValue: `Current: ${currentDose}mg`,
         confidence,
         evidence,
-        details: {
-          doses,
-          currentDose,
-          expectedProgression,
-          progressionDetails
-        }
       };
     } catch (error) {
       throw new CriteriaEvaluationError(
@@ -467,12 +435,6 @@ export const criteriaEvaluator = {
         displayValue: `${found.length}/${required.length} documented`,
         confidence,
         evidence,
-        details: {
-          required,
-          found,
-          missing,
-          qualityIssues
-        }
       };
 
       if (missing.length > 0) {
@@ -595,13 +557,7 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           status: CriteriaStatus.NOT_MET,
           criterionType: 'doseProgression',
           reason: `Drug-naive patients must start with starting dose. ${dose} is a ${doseInfo.phase} dose.`,
-          displayValue: 'No prior therapy',
-          details: {
-            isDrugNaive,
-            requestedDose: dose,
-            requestedPhase: doseInfo.phase,
-            isStartingDose
-          }
+          displayValue: 'No prior therapy'
         };
       }
       return {
@@ -610,13 +566,7 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
         reason: isDrugNaive 
           ? `Drug-naive patient requesting appropriate starting dose ${dose}`
           : `Dose progression appropriate for patient with therapy history`,
-        displayValue: isDrugNaive ? 'Drug naive' : 'Has therapy history',
-        details: {
-          isDrugNaive,
-          requestedDose: dose,
-          requestedPhase: doseInfo.phase,
-          isStartingDose
-        }
+        displayValue: isDrugNaive ? 'Drug naive' : 'Has therapy history'
       };
     }
     

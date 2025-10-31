@@ -194,21 +194,23 @@ const CoverageDisplay = ({ patientData, medication, dose }) => {
         <div className="criteria-list">
           {Object.entries(evaluationResults).map(([criterion, result]) => {
             const statusDisplay = getStatusDisplay(result.status);
+            // Filter out internal debug fields
+            const { details, ...displayResult } = result;
             return (
               <div key={criterion} className={`criterion-item ${statusDisplay.className}`}>
                 <div className="criterion-header">
                   <span className="criterion-icon">{statusDisplay.icon}</span>
                   <span className="criterion-name">{formatCriterionName(criterion)}</span>
-                  {result.required && <span className="required-badge">Required</span>}
+                  {displayResult.required && <span className="required-badge">Required</span>}
                 </div>
                 <div className="criterion-details">
                   <span className="criterion-status">{statusDisplay.label}</span>
-                  {result.displayValue && (
-                    <span className="criterion-value">{result.displayValue}</span>
+                  {displayResult.displayValue && (
+                    <span className="criterion-value">{displayResult.displayValue}</span>
                   )}
                 </div>
-                {result.reason && (
-                  <div className="criterion-reason">{result.reason}</div>
+                {displayResult.reason && (
+                  <div className="criterion-reason">{displayResult.reason}</div>
                 )}
               </div>
             );
