@@ -1,5 +1,5 @@
 import React from "react";
-import { getCoverageForDrug, getApplicableCriteria } from "../utils/coverageLogic";
+import { getCriteriaForMedication } from "../utils/coverageLogic";
 
 export default function PAForm({
   drugName,
@@ -15,8 +15,12 @@ export default function PAForm({
   
   if (!paFormOpen) return null;
 
-  const coverage = getCoverageForDrug(drugCoverage, patient?.insurance, drugName);
-  const applicableCriteria = coverage ? getApplicableCriteria(coverage, selectedDose, patient, drugName) : [];
+  const criteria = getCriteriaForMedication(drugName, selectedDose);
+  const applicableCriteria = Object.entries(criteria || {}).map(([name, config]) => ({
+    ...config,
+    name,
+    type: config.type || 'general'
+  }));
   
   // Check which criterion types are applicable
   const criteriaTypes = new Set(applicableCriteria.map(c => c.type));
@@ -60,8 +64,8 @@ export default function PAForm({
             <label className="block font-semibold mb-1">Insurance</label>
             <input className="border p-2 rounded w-full" value={patient?.insurance || ""} disabled />
           </div>
-          {/* Show all PA criteria for any drug requiring PA */}
-          {coverage && coverage.paRequired && (
+          {/* Show PA criteria if drug has criteria */}
+          {applicableCriteria.length > 0 && (
             <>
                             {/* Maintenance dose criteria - only show if applicable */}
               {showMaintenance && (

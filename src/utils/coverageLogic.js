@@ -1,338 +1,408 @@
-/* eslint-disable no-console */
-// Coverage lookup and PA criteria evaluation logic
-import React from 'react';
-import { evaluateCriterion, getSimpleStatus, calculateApprovalLikelihood } from './criteriaEvaluator';
-import { normalizeStatus, CriteriaStatus } from '../constants';
+import { normalizeStatus, CriteriaStatus } from '../constants.js';
+import { evaluateCriterion } from './criteriaEvaluator.js';
 
-/**
- * Get PA criteria for a specific medication and dose
- * This function provides criteria definitions for medications
- * @param {string} medicationId - Medication code or name (e.g., 'wegovy', 'ozempic')
- * @param {string} dose - Dose value (e.g., '0.25', '0.5')
- * @returns {Array} Array of criteria objects
- */
-export function getCriteriaForMedication(medicationId, _dose) {
-  const medId = (medicationId || '').toLowerCase();
-  
-  // Wegovy (semaglutide for weight management)
-  if (medId === 'wegovy' || medId === 'semaglutide') {
-    return [
-      {
-        type: 'bmi',
-        threshold: 27,
-        critical: true,
-        required: true,
-        description: 'BMI ≥ 27 with weight-related comorbidity or BMI ≥ 30'
-      },
-      {
-        type: 'age',
-        min: 18,
-        critical: true,
-        required: true,
-        description: 'Patient must be 18 years or older'
-      },
-      {
-        type: 'doseProgression',
-        critical: true,
-        required: true,
-        description: 'Appropriate dose progression for GLP-1 therapy'
-      },
-      {
-        type: 'contraindications',
-        critical: true,
-        required: true,
-        description: 'No absolute contraindications present'
-      },
-      {
-        type: 'documentation',
-        required: ['clinical_note', 'consent_form'],
-        critical: true,
-        description: 'Required documentation complete'
-      }
-    ];
-  }
-  
-  // Ozempic (semaglutide for diabetes)
-  if (medId === 'ozempic') {
-    return [
-      {
-        type: 'age',
-        min: 18,
-        critical: true,
-        required: true,
-        description: 'Patient must be 18 years or older'
-      },
-      {
-        type: 'documentation',
-        required: ['diabetes_diagnosis', 'a1c_result'],
-        critical: true,
-        description: 'Type 2 diabetes diagnosis and recent A1C required'
-      },
-      {
-        type: 'doseProgression',
-        critical: true,
-        required: true,
-        description: 'Appropriate dose progression'
-      }
-    ];
-  }
-  
-  // Mounjaro (tirzepatide)
-  if (medId === 'mounjaro' || medId === 'tirzepatide') {
-    return [
-      {
-        type: 'age',
-        min: 18,
-        critical: true,
-        required: true,
-        description: 'Patient must be 18 years or older'
-      },
-      {
-        type: 'bmi',
-        threshold: 27,
-        critical: true,
-        required: true,
-        description: 'BMI criteria for weight management therapy'
-      },
-      {
-        type: 'documentation',
-        required: ['clinical_note'],
-        critical: true,
-        description: 'Clinical documentation required'
-      }
-    ];
-  }
-  
-  // Default: return empty array if medication not found
-  console.warn(`No criteria defined for medication: ${medicationId}`);
-  return [];
-}
-
-export function getCoverageForDrug(drugCoverage, insurance, drugName, indication) {
-  console.log('getCoverageForDrug called:', { insurance, drugName, indication });
-  console.log('drugCoverage structure:', drugCoverage);
-  
-  // Handle both formats:
-  // 1. drugCoverage[insurance][drugName] - your current format
-  // 2. drugCoverage (direct object) - if passed directly
-  
-  if (!drugCoverage) {
-    console.error('No drugCoverage data provided');
-    return null;
-  }
-  
-  // If drugCoverage is already the insurance-specific object
-  if (drugCoverage[drugName] && !drugCoverage[insurance]) {
-    console.log('Using direct drugCoverage lookup');
-    return drugCoverage[drugName];
-  }
-  
-  // Standard lookup: drugCoverage[insurance][drugName]
-  if (!drugCoverage[insurance]) {
-    console.error(`No coverage data for insurance: ${insurance}`);
-    console.log('Available insurances:', Object.keys(drugCoverage));
-    return null;
-  }
-  
-  if (!drugCoverage[insurance][drugName]) {
-    console.error(`No coverage data for drug: ${drugName} under ${insurance}`);
-    console.log('Available drugs:', Object.keys(drugCoverage[insurance]));
-    return null;
-  }
-  
-  let coverage = drugCoverage[insurance][drugName];
-  
-  // For dual-indication drugs (Ozempic, Mounjaro), modify PA criteria based on indication
-  if (indication === 'weight_loss' && (drugName === 'Ozempic' || drugName === 'Mounjaro')) {
-    // Debug: console.log(`Modifying ${drugName} PA criteria for weight loss indication`);
-    
-    // Medicare and Medicare Part D do NOT cover weight loss - deny immediately
-    if (insurance.includes('Medicare')) {
-      return {
-        ...coverage,
-        covered: false,
-        tier: "Not Covered",
-        copay: "N/A",
-        paRequired: false,
-        stepTherapy: false,
-        preferred: false,
-        paCriteria: [],
-        note: "NOT COVERED - Weight loss medications excluded from Medicare coverage by federal law. Ozempic is ONLY covered for Type 2 Diabetes under Medicare. Off-label use for weight loss will be denied."
-      };
+// Enhanced medication database with starting doses and criteria
+const MEDICATION_DATABASE = {
+  'Wegovy': {
+    displayName: 'Wegovy (semaglutide)',
+    category: 'GLP-1',
+    startingDose: '0.25 mg',
+    doses: ['0.25 mg', '0.5 mg', '1 mg', '1.7 mg', '2.4 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 27,
+      requiresComorbidity: true,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 5
     }
-    
-    // For other insurers, clone the coverage object to avoid mutating the original
-    coverage = { ...coverage };
-    
-    // Replace diabetes-specific PA criteria with weight-loss criteria
-    coverage.paCriteria = [
-      { 
-        rule: "Patient is 18 years or older", 
-        type: "age", 
-        minAge: 18,
-        critical: true
-      },
-      { 
-        rule: "BMI ≥30 kg/m², OR BMI ≥27 kg/m² with at least one weight-related comorbidity (Type 2 Diabetes, Hypertension, Dyslipidemia, Obstructive Sleep Apnea, Cardiovascular Disease)", 
-        type: "bmi",
-        critical: true
-      },
-      { 
-        rule: "Documented participation in intensive behavioral therapy (IBT) or comprehensive lifestyle modification program for at least 3-6 months with minimal weight loss (<5%)", 
-        type: "lifestyleModification",
-        requiredDuration: 3,
-        critical: true
-      },
-      { 
-        rule: "Trial and documented failure (or intolerance/contraindication) of at least 2 conventional weight management strategies", 
-        type: "priorTherapies",
-        minTrials: 2,
-        critical: true
-      },
-      { 
-        rule: "No contraindications: pregnancy, planning pregnancy, breastfeeding, personal/family history of medullary thyroid carcinoma (MTC), Multiple Endocrine Neoplasia syndrome type 2 (MEN 2), pancreatitis", 
-        type: "contraindications",
-        critical: true
-      },
-      { 
-        rule: "For CONTINUATION: Patient achieved ≥5% weight loss from baseline within first 12-16 weeks at maximum tolerated dose", 
-        type: "weightLoss", 
-        minPercentage: 5,
-        timeframe: "12-16 weeks"
-      },
-      { 
-        rule: "For MAINTENANCE: Patient has maintained weight loss and continues lifestyle modifications", 
-        type: "weightMaintained", 
-        minPercentage: 5
-      },
-      { 
-        rule: "Chart documentation includes: baseline weight, height, BMI, comorbidities, prior weight loss attempts with dates and outcomes, lifestyle modification plan", 
-        type: "documentation"
-      },
-      {
-        rule: "Patient must follow proper dose titration schedule (drug-naive patients must start with starting dose)",
-        type: "doseProgression",
-        critical: true
-      }
-    ];
-    
-    // Update evaluation rules for weight loss
-    coverage.evaluationRules = {
-      starting: ["age", "bmi", "lifestyleModification", "priorTherapies", "contraindications", "documentation", "doseProgression"],
-      titration: ["age", "bmi", "contraindications", "documentation", "doseProgression"],
-      maintenance: ["age", "bmi", "contraindications", "weightLoss", "weightMaintained", "documentation", "doseProgression"]
-    };
-    
-    // Update note to reflect off-label use
-    coverage.note = `OFF-LABEL USE for weight loss. ${coverage.note || ''} Insurance may deny coverage for weight loss indication. Higher denial risk than diabetes indication.`;
-  }
-  
-  // Debug: console.log('Returning coverage:', coverage);
-  return coverage;
-}
-
-export function getApplicableCriteria(drug, dose, patient, drugName) {
-  if (!drug.evaluationRules || !drug.paCriteria) return drug.paCriteria || [];
-  
-  // Check if patient is currently on this medication
-  const drugHistory = patient?.therapyHistory?.find(h => 
-    h.drug === drugName || h.drug?.toLowerCase() === drugName?.toLowerCase()
-  );
-  const isCurrentlyOnMedication = drugHistory && drugHistory.status === "active";
-  
-  // If patient is already on the medication, evaluate based on their CURRENT dose/phase
-  // not the selected dose in the UI (which might be hypothetical)
-  let evaluationDose = dose;
-  if (isCurrentlyOnMedication && drugHistory.currentDose) {
-    evaluationDose = drugHistory.currentDose;
-  }
-  
-  const doseInfo = getDoseInfo(drug, evaluationDose);
-  const applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
-  
-  // For patients already on medication at maintenance dose, apply maintenance criteria
-  // (includes weightLoss, weightMaintained, etc.)
-  // Note: isContinuation logic removed as it was unused
-  
-  // Don't filter out criteria for continuations - they need to demonstrate ongoing efficacy
-  // Remove the old logic that filtered to only basic criteria
-  
-  // Filter criteria based on dose type
-  return drug.paCriteria.filter(criterion => 
-    applicableTypes.includes(criterion.type)
-  );
-}
-
-// Legacy function - now wraps the new evaluator
-export function evaluatePACriteria(patient, drug, dose, criterion, drugName) {
-  const result = evaluateCriterion(patient, criterion, drug, dose, drugName);
-  return getSimpleStatus(result);
-}
-
-// New function that returns detailed results
-export function evaluatePACriteriaDetailed(patient, drug, dose, criterion, drugName) {
-  return evaluateCriterion(patient, criterion, drug, dose, drugName);
-}
-
-// Helper function for dose info (used by evaluator)
-export function getDoseInfo(drug, dose) {
-  // Normalize dose to string for consistent comparison
-  const normalizedDose = String(dose);
-  
-  // Check if drug has doseSchedule (new structure)
-  if (drug.doseSchedule) {
-    const doseInfo = drug.doseSchedule.find(d => String(d.value) === normalizedDose);
-    if (doseInfo) {
-      return {
-        isStartingDose: doseInfo.phase === "starting",
-        isTitrationDose: doseInfo.phase === "titration",
-        isMaintenanceDose: doseInfo.phase === "maintenance",
-        doseType: doseInfo.phase,
-        duration: doseInfo.duration
-      };
+  },
+  'Ozempic': {
+    displayName: 'Ozempic (semaglutide)',
+    category: 'GLP-1',
+    startingDose: '0.25 mg',
+    doses: ['0.25 mg', '0.5 mg', '1 mg', '2 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 27,
+      requiresComorbidity: true,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 5,
+      diabetesIndication: true
+    }
+  },
+  'Zepbound': {
+    displayName: 'Zepbound (tirzepatide)',
+    category: 'GLP-1/GIP',
+    startingDose: '2.5 mg',
+    doses: ['2.5 mg', '5 mg', '7.5 mg', '10 mg', '12.5 mg', '15 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 30,
+      requiresComorbidity: false,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 5
+    }
+  },
+  'Mounjaro': {
+    displayName: 'Mounjaro (tirzepatide)',
+    category: 'GLP-1/GIP',
+    startingDose: '2.5 mg',
+    doses: ['2.5 mg', '5 mg', '7.5 mg', '10 mg', '12.5 mg', '15 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 27,
+      requiresComorbidity: true,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 5,
+      diabetesIndication: true
+    }
+  },
+  'Saxenda': {
+    displayName: 'Saxenda (liraglutide)',
+    category: 'GLP-1',
+    startingDose: '0.6 mg',
+    doses: ['0.6 mg', '1.2 mg', '1.8 mg', '2.4 mg', '3 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 30,
+      requiresComorbidity: false,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 4
+    }
+  },
+  'Contrave': {
+    displayName: 'Contrave (bupropion/naltrexone)',
+    category: 'Combination',
+    startingDose: '1 tablet',
+    doses: ['1 tablet daily', '1 tablet twice daily', '2 tablets twice daily'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 30,
+      requiresComorbidity: false,
+      requiresDoseProgression: false,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 5,
+      noOpioidUse: true
+    }
+  },
+  'Qsymia': {
+    displayName: 'Qsymia (phentermine/topiramate)',
+    category: 'Combination',
+    startingDose: '3.75 mg/23 mg',
+    doses: ['3.75 mg/23 mg', '7.5 mg/46 mg', '11.25 mg/69 mg', '15 mg/92 mg'],
+    criteriaProfile: {
+      requiresBMI: true,
+      minBMI: 30,
+      requiresComorbidity: false,
+      requiresDoseProgression: true,
+      requiresWeightLoss: true,
+      minWeightLossPercent: 3
     }
   }
-  
-  // Fallback to old startingDoses array (for backward compatibility)
-  if (drug.startingDoses) {
-    const isStartingDose = drug.startingDoses.some(d => String(d) === normalizedDose);
-    return {
-      isStartingDose,
-      isTitrationDose: false,
-      isMaintenanceDose: !isStartingDose,
-      doseType: isStartingDose ? "starting" : "maintenance",
-      duration: null
-    };
-  }
-  
-  // Default: treat as maintenance dose
-  return {
-    isStartingDose: false,
-    isTitrationDose: false,
-    isMaintenanceDose: true,
-    doseType: "maintenance",
-    duration: null
-  };
-}
-
-// Status icon renderer
-export function statusIcon(status, rule) {
-  const normalized = normalizeStatus(status);
-  
-  if (rule && rule.includes("Documentation")) {
-    if (normalized === CriteriaStatus.MET) {
-      return <span className="text-green-700 font-bold mr-2" style={{color: '#15803d'}}>✓</span>;
-    }
-    return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>~</span>;
-  }
-  if (normalized === CriteriaStatus.MET) return <span className="text-green-700 font-bold mr-2" style={{color: '#15803d'}}>✓</span>;
-  if (normalized === CriteriaStatus.NOT_MET) return <span style={{color: "red", fontWeight: "bold", marginRight: 8}}>✗</span>;
-  if (normalized === CriteriaStatus.NOT_APPLICABLE) return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>N/A</span>;
-  if (normalized === CriteriaStatus.WARNING) return <span style={{color: "orange", fontWeight: "bold", marginRight: 8}}>⚠</span>;
-  return null;
-}
-
-// Calculate approval likelihood
-export const getApprovalLikelihood = (criteriaResults) => {
-  return calculateApprovalLikelihood(criteriaResults);
 };
+
+// Define criteria requirements for each medication and dosage
+export function getCriteriaForMedication(medication, _dose) {
+  const drugProfile = MEDICATION_DATABASE[medication];
+  if (!drugProfile) {
+    // Default criteria for unknown medications
+    return {
+      age: { required: true, min: 18 },
+      bmi: { required: true, min: 27 },
+      doseProgression: { required: true },
+      maintenance: { required: false },
+      weightLoss: { required: true, threshold: 5 },
+      documentation: { required: true }
+    };
+  }
+
+  const criteria = {
+    age: { required: true, min: 18 },
+    bmi: { 
+      required: drugProfile.criteriaProfile.requiresBMI, 
+      min: drugProfile.criteriaProfile.minBMI 
+    },
+    doseProgression: { 
+      required: drugProfile.criteriaProfile.requiresDoseProgression 
+    },
+    maintenance: { required: false },
+    weightLoss: { 
+      required: drugProfile.criteriaProfile.requiresWeightLoss,
+      threshold: drugProfile.criteriaProfile.minWeightLossPercent 
+    },
+    documentation: { required: true }
+  };
+
+  // Add comorbidity requirement if applicable
+  if (drugProfile.criteriaProfile.requiresComorbidity) {
+    criteria.comorbidity = { required: true };
+  }
+
+  // Add special requirements
+  if (drugProfile.criteriaProfile.noOpioidUse) {
+    criteria.noOpioidUse = { required: true };
+  }
+
+  if (drugProfile.criteriaProfile.diabetesIndication) {
+    criteria.diabetesPreferred = { required: false, preferred: true };
+  }
+
+  return criteria;
+}
+
+// Calculate approval likelihood for a specific medication
+export function calculateApprovalLikelihood(evaluationResults, medication) {
+  if (!evaluationResults || typeof evaluationResults !== 'object') {
+    return 0;
+  }
+
+  const criteria = Object.values(evaluationResults);
+  const totalCriteria = criteria.length;
+  
+  if (totalCriteria === 0) {
+    return 0;
+  }
+
+  let metCriteria = 0;
+  let partialCriteria = 0;
+  let criticalFailures = 0;
+
+  criteria.forEach(criterion => {
+    const status = normalizeStatus(criterion.status);
+    const isRequired = criterion.required !== false;
+
+    switch (status) {
+      case CriteriaStatus.MET:
+        metCriteria++;
+        break;
+      case CriteriaStatus.PARTIAL:
+        partialCriteria++;
+        break;
+      case CriteriaStatus.NOT_MET:
+        if (isRequired) {
+          criticalFailures++;
+        }
+        break;
+      case CriteriaStatus.NOT_APPLICABLE:
+        // Don't count N/A criteria against the likelihood
+        break;
+    }
+  });
+
+  // If there are critical failures in required criteria, significantly reduce likelihood
+  if (criticalFailures > 0) {
+    return Math.max(0, 30 - (criticalFailures * 15));
+  }
+
+  // Calculate base likelihood
+  const metPercentage = (metCriteria / totalCriteria) * 100;
+  const partialBonus = (partialCriteria / totalCriteria) * 30;
+
+  let likelihood = metPercentage + partialBonus;
+
+  // Apply medication-specific adjustments
+  const drugProfile = MEDICATION_DATABASE[medication];
+  if (drugProfile?.criteriaProfile.diabetesIndication && evaluationResults.diabetesPreferred?.status === CriteriaStatus.MET) {
+    likelihood += 10; // Bonus for diabetes indication
+  }
+
+  return Math.min(100, Math.max(0, Math.round(likelihood)));
+}
+
+// Find alternative medications with better approval likelihood
+export function findAlternativeMedications(patientData, currentMedication, currentDose, currentLikelihood) {
+  const alternatives = [];
+  
+  // Don't suggest alternatives if current likelihood is already high
+  if (currentLikelihood >= 80) {
+    return alternatives;
+  }
+
+  for (const [medName, medProfile] of Object.entries(MEDICATION_DATABASE)) {
+    // Skip the current medication
+    if (medName === currentMedication) {
+      continue;
+    }
+
+    // Evaluate the alternative at starting dose
+    const startingDose = medProfile.startingDose;
+    const criteria = getCriteriaForMedication(medName, startingDose);
+    const evaluationResults = {};
+
+    // Evaluate each criterion for this medication
+    for (const [criterionName, criterionConfig] of Object.entries(criteria)) {
+      if (criterionName === 'doseProgression') {
+        // For alternatives, assume starting dose so progression is typically met
+        evaluationResults[criterionName] = {
+          status: CriteriaStatus.MET,
+          reason: 'Starting dose - progression requirements typically met',
+          required: criterionConfig.required
+        };
+      } else {
+        // Use the actual evaluator for other criteria
+        const result = evaluateCriterion(patientData, criterionConfig, medName, startingDose, medName);
+        evaluationResults[criterionName] = {
+          ...result,
+          required: criterionConfig.required
+        };
+      }
+    }
+
+    const alternativeLikelihood = calculateApprovalLikelihood(evaluationResults, medName);
+
+    // Only suggest if likelihood is better than current
+    if (alternativeLikelihood > currentLikelihood) {
+      alternatives.push({
+        medication: medName,
+        displayName: medProfile.displayName,
+        category: medProfile.category,
+        suggestedDose: startingDose,
+        approvalLikelihood: alternativeLikelihood,
+        improvement: alternativeLikelihood - currentLikelihood,
+        evaluationResults,
+        reasons: generateAlternativeReasons(evaluationResults, medProfile)
+      });
+    }
+  }
+
+  // Sort by approval likelihood (highest first)
+  alternatives.sort((a, b) => b.approvalLikelihood - a.approvalLikelihood);
+
+  // Return top 3 alternatives
+  return alternatives.slice(0, 3);
+}
+
+// Generate reasons why an alternative might be better
+function generateAlternativeReasons(evaluationResults, medProfile) {
+  const reasons = [];
+
+  if (medProfile.criteriaProfile.minBMI < 30) {
+    reasons.push('Lower BMI requirement');
+  }
+
+  if (!medProfile.criteriaProfile.requiresComorbidity) {
+    reasons.push('No comorbidity requirement');
+  }
+
+  if (medProfile.criteriaProfile.diabetesIndication && evaluationResults.diabetesPreferred?.status === CriteriaStatus.MET) {
+    reasons.push('Has diabetes indication');
+  }
+
+  if (medProfile.criteriaProfile.minWeightLossPercent < 5) {
+    reasons.push('Lower weight loss threshold');
+  }
+
+  // Count met criteria
+  const metCount = Object.values(evaluationResults).filter(r => 
+    normalizeStatus(r.status) === CriteriaStatus.MET
+  ).length;
+  
+  if (metCount > 0) {
+    reasons.push(`Meets ${metCount} criteria`);
+  }
+
+  return reasons;
+}
+
+// Generate recommendations based on evaluation results
+export function generateRecommendations(evaluationResults, _medication, _dose) {
+  const priorityMap = {
+    HIGH: [],
+    MEDIUM: [],
+    LOW: []
+  };
+
+  for (const [criterion, result] of Object.entries(evaluationResults)) {
+    const status = normalizeStatus(result.status);
+    const isRequired = result.required !== false;
+
+    if (status === CriteriaStatus.NOT_MET) {
+      const rec = generateRecommendationForCriterion(criterion, result, isRequired);
+      if (rec) {
+        priorityMap[rec.priority].push(rec);
+      }
+    } else if (status === CriteriaStatus.PARTIAL) {
+      const rec = generateRecommendationForCriterion(criterion, result, false);
+      if (rec) {
+        priorityMap.MEDIUM.push(rec);
+      }
+    }
+  }
+
+  // Combine in priority order
+  return [
+    ...priorityMap.HIGH,
+    ...priorityMap.MEDIUM,
+    ...priorityMap.LOW
+  ];
+}
+
+function generateRecommendationForCriterion(criterion, result, isRequired) {
+  const baseRec = {
+    criterion,
+    status: result.status,
+    priority: isRequired ? 'HIGH' : 'MEDIUM'
+  };
+
+  switch (criterion) {
+    case 'age':
+      return {
+        ...baseRec,
+        action: 'Verify patient age',
+        details: 'Patient must be 18 years or older for this medication'
+      };
+
+    case 'bmi':
+      return {
+        ...baseRec,
+        action: 'Document current BMI',
+        details: result.reason || 'Update height and weight measurements'
+      };
+
+    case 'doseProgression':
+      return {
+        ...baseRec,
+        action: 'Review dosing history',
+        details: 'Ensure proper dose escalation protocol has been followed'
+      };
+
+    case 'weightLoss':
+      return {
+        ...baseRec,
+        action: 'Document weight loss progress',
+        details: result.reason || 'Record weight measurements over treatment period'
+      };
+
+    case 'documentation':
+      return {
+        ...baseRec,
+        action: 'Complete clinical documentation',
+        details: 'Ensure all required clinical notes and assessments are documented'
+      };
+
+    case 'comorbidity':
+      return {
+        ...baseRec,
+        action: 'Document comorbidities',
+        details: 'Record qualifying conditions (diabetes, hypertension, dyslipidemia, etc.)'
+      };
+
+    case 'noOpioidUse':
+      return {
+        ...baseRec,
+        action: 'Review medication history',
+        details: 'Confirm no concurrent opioid use (contraindicated with naltrexone)'
+      };
+
+    default:
+      return null;
+  }
+}
+
+// Export additional utilities
+export { MEDICATION_DATABASE };

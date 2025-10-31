@@ -1,689 +1,305 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Card,
-  CardContent,
-  Typography,
-  LinearProgress,
-  Chip,
-  Alert,
-  Box,
-  Grid,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Button,
-  Tooltip,
-  IconButton,
-  Divider
-} from '@mui/material';
-import {
-  CheckCircle,
-  Cancel,
-  Warning,
-  Info,
-  ExpandMore,
-  Refresh,
-  TrendingUp,
-  Description,
-  Timeline
-} from '@mui/icons-material';
-import { CriteriaStatus, normalizeStatus } from '../constants';
-import { evaluateCoverage } from '../utils/coverageEvaluator';
-import { getCoverageForDrug, getApplicableCriteria } from '../utils/coverageLogic';
-import { evaluateCriterion, calculateApprovalLikelihood } from '../utils/criteriaEvaluator';
+import { 
+  getCriteriaForMedication, 
+  calculateApprovalLikelihood, 
+  generateRecommendations,
+  findAlternativeMedications,
+  MEDICATION_DATABASE 
+} from '../utils/coverageLogic';
+import { evaluateCriterion } from '../utils/criteriaEvaluator';
+import { normalizeStatus, CriteriaStatus } from '../constants';
+import './CoverageDisplay.css';
 
-export function CoverageDisplay({ 
-  // New format props
-  patientId, 
-  medication, 
-  dose,
-  onGeneratePA,
-  onCriterionOverride,
-  // Old format props (from TherapyModal)
-  insurance,
-  drugName,
-  selectedDose,
-  selectedPatient,
-  drugCoverage,
-  indication
-}) {
-  const [loading, setLoading] = useState(true);
-  const [coverageResult, setCoverageResult] = useState(null);
+const CoverageDisplay = ({ patientData, medication, dose }) => {
+  const [evaluationResults, setEvaluationResults] = useState({});
+  const [approvalLikelihood, setApprovalLikelihood] = useState(0);
+  const [recommendations, setRecommendations] = useState([]);
+  const [alternatives, setAlternatives] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [expandedCriteria, setExpandedCriteria] = useState([]);
-  const [overrides, setOverrides] = useState({});
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [selectedAlternative, setSelectedAlternative] = useState(null);
 
-  // Determine if using old or new format
-  const useOldFormat = Boolean(insurance && drugName && selectedPatient && drugCoverage);
-  const useNewFormat = Boolean(patientId && medication);
+  // Memoize criteria to prevent unnecessary recalculations
+  const criteria = useMemo(() => 
+    getCriteriaForMedication(medication, dose),
+    [medication, dose]
+  );
 
   useEffect(() => {
-    // Don't evaluate if no dose is selected in old format
-    if (useOldFormat && !selectedDose) {
-      setLoading(false);
-      setCoverageResult(null);
-      return;
-    }
-    
-    if (useOldFormat && selectedDose) {
-      evaluateCoverageOldFormat();
-    } else if (useNewFormat) {
-      evaluateCoverageAsync();
-    }
-  }, [patientId, medication, dose, insurance, drugName, selectedDose, selectedPatient, drugCoverage, indication]);
-
-  const evaluateCoverageOldFormat = () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Get coverage data for this insurance/drug combination
-      const coverage = getCoverageForDrug(drugCoverage, insurance, drugName, indication);
+    const evaluatePatient = async () => {
+      setIsLoading(true);
+      setError(null);
       
-      if (!coverage) {
-        setError(`No coverage data found for ${drugName} under ${insurance}`);
-        setCoverageResult(null);
-        setLoading(false);
-        return;
-      }
+      try {
+        // Validate inputs
+        if (!patientData || !medication) {
+          throw new Error('Missing patient data or medication selection');
+        }
 
-      // If drug is not covered, show that immediately
-      if (coverage.covered === false) {
-        setCoverageResult({
-          drug: { name: drugName },
-          selectedDose: selectedDose,
-          requiresPA: false,
-          coverageStatus: 'not_covered',
-          criteriaResults: [],
-          recommendations: [{
-            priority: 'high',
-            action: 'not_covered',
-            message: coverage.note || 'This medication is not covered under this insurance plan.'
-          }],
-          likelihood: { likelihood: 0, color: 'red', reason: 'Not covered' }
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Get applicable criteria for the selected dose
-      const applicableCriteria = selectedDose 
-        ? getApplicableCriteria(coverage, selectedDose, selectedPatient, drugName)
-        : (coverage.paCriteria || []);
-
-      // Evaluate each criterion
-      const criteriaResults = applicableCriteria.map(criterion => {
-        const result = evaluateCriterion(
-          selectedPatient,
-          criterion,
-          coverage,
-          selectedDose,
-          drugName
-        );
+        const results = {};
         
-        return {
-          ...result,
-          criterion: criterion.rule || criterion.type,
-          required: criterion.critical || false
-        };
-      });
+        // Evaluate each criterion
+        for (const [criterionName, criterionConfig] of Object.entries(criteria)) {
+          try {
+            const result = evaluateCriterion(patientData, criterionConfig, medication, dose, medication);
+            
+            results[criterionName] = {
+              ...result,
+              required: criterionConfig.required
+            };
+          } catch (err) {
+            console.error(`Error evaluating ${criterionName}:`, err);
+            results[criterionName] = {
+              status: CriteriaStatus.ERROR,
+              reason: `Error evaluating ${criterionName}: ${err.message}`,
+              required: criterionConfig.required
+            };
+          }
+        }
 
-      // Calculate overall likelihood
-      const likelihood = calculateApprovalLikelihood(criteriaResults);
+        setEvaluationResults(results);
+        
+        // Calculate approval likelihood
+        const likelihood = calculateApprovalLikelihood(results, medication);
+        setApprovalLikelihood(likelihood);
+        
+        // Generate recommendations
+        const recs = generateRecommendations(results, medication, dose);
+        setRecommendations(recs);
 
-      setCoverageResult({
-        drug: { name: drugName },
-        selectedDose: selectedDose,
-        requiresPA: coverage.paRequired,
-        coverageStatus: coverage.covered ? 'covered' : 'not_covered',
-        criteriaResults: criteriaResults,
-        recommendations: [],
-        likelihood: likelihood,
-        coverage: coverage
-      });
-    } catch (err) {
-      console.error('Coverage evaluation failed (old format):', err);
-      setError(err.message || 'Failed to evaluate coverage');
-      setCoverageResult(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // Find alternatives if likelihood is low
+        if (likelihood < 70) {
+          const alts = findAlternativeMedications(patientData, medication, dose, likelihood);
+          setAlternatives(alts);
+          setShowAlternatives(alts.length > 0);
+        } else {
+          setAlternatives([]);
+          setShowAlternatives(false);
+        }
 
-  const evaluateCoverageAsync = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await evaluateCoverage(patientId, medication, dose);
-      setCoverageResult(result);
-    } catch (err) {
-      console.error('Coverage evaluation failed:', err);
-      setError(err.message || 'Failed to evaluate coverage');
-      setCoverageResult({
-        error: err.message,
-        criteriaResults: [],
-        recommendations: [{
-          priority: 'high',
-          action: 'manual_review',
-          message: 'Automated evaluation failed. Manual review required.'
-        }]
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Calculate approval score with confidence weighting
-  const approvalScore = useMemo(() => {
-    if (!coverageResult?.criteriaResults || coverageResult.criteriaResults.length === 0) return 0;
-    
-    const weights = {
-      [CriteriaStatus.MET]: 1,
-      [CriteriaStatus.NOT_MET]: 0,
-      [CriteriaStatus.PARTIALLY_MET]: 0.5,
-      [CriteriaStatus.PENDING_DOCUMENTATION]: 0.3,
-      [CriteriaStatus.NOT_APPLICABLE]: null // Don't count N/A in scoring
+      } catch (err) {
+        setError(err.message);
+        console.error('Evaluation error:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
-    let totalScore = 0;
-    let totalWeight = 0;
-    
-    coverageResult.criteriaResults.forEach(result => {
-      const status = normalizeStatus(result.status);
-      const weight = weights[status];
-      
-      if (weight !== null && weight !== undefined) {
-        const confidence = result.confidence || 1;
-        const isRequired = result.required !== false; // Assume required unless explicitly false
-        const criterionWeight = isRequired ? 2 : 1;
-        
-        totalScore += weight * confidence * criterionWeight;
-        totalWeight += criterionWeight;
-      }
-    });
-    
-    return totalWeight > 0 ? Math.round((totalScore / totalWeight) * 100) : 0;
-  }, [coverageResult]);
 
-  // Get status icon
-  const getStatusIcon = (status) => {
+    evaluatePatient();
+  }, [patientData, medication, dose, criteria]);
+
+  // Get status icon and color
+  const getStatusDisplay = (status) => {
     const normalizedStatus = normalizeStatus(status);
+    
     switch (normalizedStatus) {
       case CriteriaStatus.MET:
-        return <CheckCircle color="success" />;
+        return { icon: '✓', className: 'status-met', label: 'Met' };
       case CriteriaStatus.NOT_MET:
-        return <Cancel color="error" />;
-      case CriteriaStatus.PARTIALLY_MET:
-      case CriteriaStatus.PENDING_DOCUMENTATION:
-        return <Warning color="warning" />;
+        return { icon: '✗', className: 'status-not-met', label: 'Not Met' };
+      case CriteriaStatus.PARTIAL:
+        return { icon: '⚠', className: 'status-partial', label: 'Partial' };
       case CriteriaStatus.NOT_APPLICABLE:
-        return <Info color="disabled" />;
+        return { icon: '—', className: 'status-na', label: 'N/A' };
+      case CriteriaStatus.ERROR:
+        return { icon: '!', className: 'status-error', label: 'Error' };
       default:
-        return <Info color="disabled" />;
+        return { icon: '?', className: 'status-unknown', label: 'Unknown' };
     }
   };
 
-  // Get confidence color
-  const getConfidenceColor = (confidence) => {
-    if (!confidence && confidence !== 0) return 'default';
-    if (confidence >= 0.9) return 'success';
-    if (confidence >= 0.7) return 'warning';
-    return 'error';
+  // Get likelihood color class
+  const getLikelihoodClass = (likelihood) => {
+    if (likelihood >= 80) return 'likelihood-high';
+    if (likelihood >= 50) return 'likelihood-medium';
+    return 'likelihood-low';
   };
 
-  // Get approval score color
-  const getApprovalColor = () => {
-    if (approvalScore >= 80) return 'success.main';
-    if (approvalScore >= 60) return 'warning.main';
-    return 'error.main';
+  // Format criterion name for display
+  const formatCriterionName = (name) => {
+    const nameMap = {
+      age: 'Age Requirement',
+      bmi: 'BMI Criteria',
+      doseProgression: 'Dose Progression',
+      maintenance: 'Maintenance Phase',
+      weightLoss: 'Weight Loss',
+      documentation: 'Clinical Documentation',
+      comorbidity: 'Comorbidity',
+      noOpioidUse: 'No Opioid Use',
+      diabetesPreferred: 'Diabetes Indication'
+    };
+    return nameMap[name] || name.charAt(0).toUpperCase() + name.slice(1);
   };
 
-  // Handle criterion override
-  const handleOverride = (criterionIndex, newStatus, reason) => {
-    setOverrides(prev => ({
-      ...prev,
-      [criterionIndex]: { status: newStatus, reason, timestamp: Date.now() }
-    }));
-    
-    if (onCriterionOverride) {
-      onCriterionOverride(criterionIndex, newStatus, reason);
-    }
+  // Handle alternative selection
+  const handleSelectAlternative = (alternative) => {
+    setSelectedAlternative(alternative);
   };
 
-  // Loading state
-  if (loading) {
-    const displayName = drugName || medication?.name || 'medication';
-    const displayDose = selectedDose || dose;
-    
+  if (isLoading) {
     return (
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Evaluating Coverage Criteria...
-          </Typography>
-          <Typography variant="body2" color="textSecondary" gutterBottom>
-            Analyzing patient data against {displayName} criteria
-          </Typography>
-          <LinearProgress sx={{ mt: 2 }} />
-        </CardContent>
-      </Card>
+      <div className="coverage-display loading">
+        <div className="spinner"></div>
+        <p>Evaluating coverage criteria...</p>
+      </div>
     );
   }
 
-  // Error state
-  if (error && !coverageResult) {
+  if (error) {
     return (
-      <Card>
-        <CardContent>
-          <Alert 
-            severity="error" 
-            action={
-              <Button color="inherit" size="small" onClick={useOldFormat ? evaluateCoverageOldFormat : evaluateCoverageAsync}>
-                <Refresh sx={{ mr: 0.5 }} /> Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
-        </CardContent>
-      </Card>
+      <div className="coverage-display error">
+        <div className="error-message">
+          <span className="error-icon">⚠️</span>
+          <p>{error}</p>
+        </div>
+      </div>
     );
   }
 
-  // Don't show anything if no dose selected (old format only)
-  if (useOldFormat && !selectedDose) {
-    return null;
-  }
-
-  if (!coverageResult) {
-    return null;
-  }
-
-  const { criteriaResults = [], summary, recommendations = [] } = coverageResult;
-  
-  const displayName = coverageResult.drug?.name || drugName || medication?.name || 'medication';
-  const displayDose = coverageResult.selectedDose || selectedDose || dose;
+  const metCount = Object.values(evaluationResults).filter(
+    r => normalizeStatus(r.status) === CriteriaStatus.MET
+  ).length;
+  const totalCount = Object.keys(evaluationResults).length;
 
   return (
-    <Box>
-      {/* Summary Card with Score */}
-      <Card sx={{ mb: 3, borderTop: `4px solid`, borderColor: getApprovalColor() }}>
-        <CardContent>
-          <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={7}>
-              <Typography variant="h5" gutterBottom>
-                Prior Authorization Assessment
-              </Typography>
-              <Typography color="textSecondary" gutterBottom>
-                {displayName}{displayDose ? ` - ${displayDose}` : ''}
-              </Typography>
-              {summary && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {summary}
-                </Typography>
-              )}
-              
-              {/* Quick Stats */}
-              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip 
-                  size="small" 
-                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.MET).length} Met`}
-                  color="success"
-                  variant="outlined"
-                />
-                <Chip 
-                  size="small" 
-                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.NOT_MET).length} Not Met`}
-                  color="error"
-                  variant="outlined"
-                />
-                <Chip 
-                  size="small" 
-                  label={`${criteriaResults.filter(r => normalizeStatus(r.status) === CriteriaStatus.PENDING_DOCUMENTATION).length} Pending`}
-                  color="warning"
-                  variant="outlined"
-                />
-              </Box>
-            </Grid>
-            
-            <Grid item xs={12} md={5}>
-              <Box display="flex" alignItems="center" justifyContent="flex-end" gap={2}>
-                <Box textAlign="center">
-                  <Typography 
-                    variant="h2" 
-                    color={getApprovalColor()}
-                    sx={{ fontWeight: 'bold' }}
-                  >
-                    {approvalScore}%
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Approval Likelihood
-                  </Typography>
-                </Box>
-                
-                {onGeneratePA && (
-                  <Box>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={<Description />}
-                      onClick={() => onGeneratePA(coverageResult)}
-                      disabled={approvalScore < 30}
-                    >
-                      Generate PA
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            </Grid>
-          </Grid>
-          
-          {/* Progress Bar */}
-          <Box mt={3}>
-            <LinearProgress 
-              variant="determinate" 
-              value={approvalScore}
-              sx={{ 
-                height: 10, 
-                borderRadius: 5,
-                backgroundColor: 'grey.200',
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 5,
-                  background: approvalScore >= 80 
-                    ? 'linear-gradient(90deg, #4caf50, #66bb6a)'
-                    : approvalScore >= 60
-                    ? 'linear-gradient(90deg, #ff9800, #ffb74d)'
-                    : 'linear-gradient(90deg, #f44336, #ef5350)'
-                }
-              }}
-            />
-          </Box>
-        </CardContent>
-      </Card>
+    <div className="coverage-display">
+      {/* Header Section */}
+      <div className="coverage-header">
+        <h2>Prior Authorization Assessment</h2>
+        <div className="medication-info">
+          <span className="medication-name">{medication}</span>
+          {dose && <span className="medication-dose">{dose}</span>}
+        </div>
+      </div>
 
-      {/* High Priority Recommendations */}
-      {recommendations.filter(r => r.priority === 'high').length > 0 && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 3 }}
-          icon={<Warning />}
-        >
-          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Action Required:
-          </Typography>
-          <Box component="ul" sx={{ m: 0, pl: 2 }}>
-            {recommendations
-              .filter(r => r.priority === 'high')
-              .slice(0, 3)
-              .map((rec, idx) => (
-                <li key={idx}>
-                  <Typography variant="body2">{rec.message}</Typography>
-                  {rec.steps && (
-                    <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                      {rec.steps.slice(0, 2).map((step, stepIdx) => (
-                        <li key={stepIdx}>
-                          <Typography variant="caption" color="textSecondary">
-                            {step}
-                          </Typography>
-                        </li>
-                      ))}
-                    </Box>
+      {/* Approval Likelihood */}
+      <div className={`approval-likelihood ${getLikelihoodClass(approvalLikelihood)}`}>
+        <div className="likelihood-label">Approval Likelihood</div>
+        <div className="likelihood-value">{approvalLikelihood}%</div>
+        <div className="likelihood-bar">
+          <div 
+            className="likelihood-bar-fill" 
+            style={{ width: `${approvalLikelihood}%` }}
+          ></div>
+        </div>
+        <div className="criteria-summary">
+          {metCount} of {totalCount} criteria met
+        </div>
+      </div>
+
+      {/* Criteria Results */}
+      <div className="criteria-section">
+        <h3>Coverage Criteria</h3>
+        <div className="criteria-list">
+          {Object.entries(evaluationResults).map(([criterion, result]) => {
+            const statusDisplay = getStatusDisplay(result.status);
+            return (
+              <div key={criterion} className={`criterion-item ${statusDisplay.className}`}>
+                <div className="criterion-header">
+                  <span className="criterion-icon">{statusDisplay.icon}</span>
+                  <span className="criterion-name">{formatCriterionName(criterion)}</span>
+                  {result.required && <span className="required-badge">Required</span>}
+                </div>
+                <div className="criterion-details">
+                  <span className="criterion-status">{statusDisplay.label}</span>
+                  {result.displayValue && (
+                    <span className="criterion-value">{result.displayValue}</span>
                   )}
-                </li>
-              ))
-            }
-          </Box>
-        </Alert>
+                </div>
+                {result.reason && (
+                  <div className="criterion-reason">{result.reason}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="recommendations-section">
+          <h3>Recommended Actions</h3>
+          <div className="recommendations-list">
+            {recommendations.map((rec, index) => (
+              <div key={index} className={`recommendation-item priority-${rec.priority.toLowerCase()}`}>
+                <div className="recommendation-header">
+                  <span className="recommendation-priority">{rec.priority}</span>
+                  <span className="recommendation-action">{rec.action}</span>
+                </div>
+                <div className="recommendation-details">{rec.details}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Criteria Details */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Criteria Evaluation Details
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-          
-          {criteriaResults.length === 0 ? (
-            <Alert severity={coverageResult.coverageStatus === 'not_covered' ? "error" : "info"}>
-              {coverageResult.coverageStatus === 'not_covered' && coverageResult.recommendations?.[0]?.message
-                ? coverageResult.recommendations[0].message
-                : 'No criteria results available. Please check the medication configuration.'}
-            </Alert>
-          ) : (
-            criteriaResults.map((result, index) => {
-              const isExpanded = expandedCriteria.includes(index);
-              const overridden = overrides[index];
-              const effectiveStatus = overridden?.status || normalizeStatus(result.status);
-              
+      {/* Alternative Medications */}
+      {showAlternatives && alternatives.length > 0 && (
+        <div className="alternatives-section">
+          <h3>Alternative Options with Better Coverage</h3>
+          <p className="alternatives-description">
+            These medications may have a higher chance of approval based on the patient&apos;s profile:
+          </p>
+          <div className="alternatives-list">
+            {alternatives.map((alt, index) => (
+              <div 
+                key={`${alt.medication}-${index}`}
+                className={`alternative-item ${selectedAlternative === alt ? 'selected' : ''}`}
+                onClick={() => handleSelectAlternative(alt)}
+              >
+                <div className="alternative-header">
+                  <div className="alternative-name">{alt.displayName}</div>
+                  <div className="alternative-category">{alt.category}</div>
+                </div>
+                <div className="alternative-likelihood">
+                  <span className="likelihood-label">Approval Likelihood:</span>
+                  <span className={`likelihood-value ${getLikelihoodClass(alt.approvalLikelihood)}`}>
+                    {alt.approvalLikelihood}%
+                  </span>
+                  <span className="likelihood-improvement">
+                    (+{alt.improvement}% vs current)
+                  </span>
+                </div>
+                <div className="alternative-dose">
+                  Suggested starting dose: {alt.suggestedDose}
+                </div>
+                {alt.reasons.length > 0 && (
+                  <div className="alternative-reasons">
+                    <span className="reasons-label">Advantages:</span>
+                    <ul>
+                      {alt.reasons.map((reason, idx) => (
+                        <li key={idx}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selected Alternative Details */}
+      {selectedAlternative && (
+        <div className="selected-alternative-details">
+          <h4>Detailed Assessment: {selectedAlternative.displayName}</h4>
+          <div className="criteria-list">
+            {Object.entries(selectedAlternative.evaluationResults).map(([criterion, result]) => {
+              const statusDisplay = getStatusDisplay(result.status);
               return (
-                <Accordion
-                  key={index}
-                  expanded={isExpanded}
-                  onChange={(_, expanded) => {
-                    setExpandedCriteria(prev =>
-                      expanded 
-                        ? [...prev, index]
-                        : prev.filter(i => i !== index)
-                    );
-                  }}
-                  sx={{ 
-                    mb: 1,
-                    border: overridden ? '2px solid orange' : 'none',
-                    '&:before': { display: 'none' }
-                  }}
-                >
-                  <AccordionSummary 
-                    expandIcon={<ExpandMore />}
-                    sx={{ 
-                      '& .MuiAccordionSummary-content': { 
-                        alignItems: 'center' 
-                      }
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" width="100%" gap={2}>
-                      <Box sx={{ flexShrink: 0 }}>
-                        {getStatusIcon(effectiveStatus)}
-                      </Box>
-                      
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle1">
-                          {result.criterion}
-                          {result.required !== false && (
-                            <Chip 
-                              label="Required" 
-                              size="small" 
-                              color="primary" 
-                              sx={{ ml: 1, height: 20 }}
-                            />
-                          )}
-                          {overridden && (
-                            <Chip 
-                              label="Overridden" 
-                              size="small" 
-                              color="warning" 
-                              sx={{ ml: 1, height: 20 }}
-                            />
-                          )}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {result.displayValue || 'No value'}
-                        </Typography>
-                      </Box>
-                      
-                      {result.confidence !== undefined && (
-                        <Tooltip title="Data confidence level">
-                          <Chip
-                            label={`${Math.round((result.confidence || 0) * 100)}%`}
-                            size="small"
-                            color={getConfidenceColor(result.confidence)}
-                            variant="outlined"
-                          />
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </AccordionSummary>
-                  
-                  <AccordionDetails>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={8}>
-                        {/* Reason */}
-                        <Typography variant="body2" paragraph>
-                          {result.reason}
-                        </Typography>
-                        
-                        {/* Evidence & Warnings */}
-                        {result.evidence && result.evidence.length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                              Evidence & Data Quality:
-                            </Typography>
-                            {result.evidence.map((item, idx) => (
-                              <Alert 
-                                key={idx} 
-                                severity={item.type || 'info'} 
-                                sx={{ mb: 1 }}
-                                icon={
-                                  item.type === 'warning' ? <Warning /> :
-                                  item.type === 'error' ? <Cancel /> :
-                                  <Info />
-                                }
-                              >
-                                {item.message}
-                              </Alert>
-                            ))}
-                          </Box>
-                        )}
-                        
-                        {/* Details */}
-                        {result.details && Object.keys(result.details).length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                              Details:
-                            </Typography>
-                            <Box sx={{ 
-                              bgcolor: 'grey.50', 
-                              p: 1.5, 
-                              borderRadius: 1,
-                              fontFamily: 'monospace',
-                              fontSize: '0.875rem'
-                            }}>
-                              {Object.entries(result.details).map(([key, value]) => (
-                                <div key={key}>
-                                  <strong>{key}:</strong> {JSON.stringify(value)}
-                                </div>
-                              ))}
-                            </Box>
-                          </Box>
-                        )}
-                        
-                        {/* Recommendation */}
-                        {result.recommendation && (
-                          <Alert severity="info" icon={<TrendingUp />}>
-                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                              Recommendation:
-                            </Typography>
-                            <Typography variant="body2" paragraph>
-                              {result.recommendation.message}
-                            </Typography>
-                            {result.recommendation.steps && (
-                              <Box component="ol" sx={{ m: 0, pl: 2 }}>
-                                {result.recommendation.steps.map((step, idx) => (
-                                  <li key={idx}>
-                                    <Typography variant="body2">{step}</Typography>
-                                  </li>
-                                ))}
-                              </Box>
-                            )}
-                          </Alert>
-                        )}
-                      </Grid>
-                      
-                      {/* Override Controls */}
-                      {onCriterionOverride && (
-                        <Grid item xs={12} md={4}>
-                          <Box 
-                            sx={{ 
-                              p: 2, 
-                              bgcolor: 'background.default', 
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider'
-                            }}
-                          >
-                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                              Clinical Override:
-                            </Typography>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              fullWidth
-                              onClick={() => handleOverride(index, CriteriaStatus.MET, 'Clinical judgment')}
-                              disabled={effectiveStatus === CriteriaStatus.MET}
-                              sx={{ mb: 1 }}
-                            >
-                              Mark as Met
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              fullWidth
-                              onClick={() => handleOverride(index, CriteriaStatus.NOT_APPLICABLE, 'Not applicable')}
-                              disabled={effectiveStatus === CriteriaStatus.NOT_APPLICABLE}
-                              sx={{ mb: 1 }}
-                            >
-                              Mark as N/A
-                            </Button>
-                            {overridden && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                fullWidth
-                                color="warning"
-                                onClick={() => {
-                                  const newOverrides = { ...overrides };
-                                  delete newOverrides[index];
-                                  setOverrides(newOverrides);
-                                }}
-                              >
-                                Remove Override
-                              </Button>
-                            )}
-                          </Box>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </AccordionDetails>
-                </Accordion>
+                <div key={criterion} className={`criterion-item ${statusDisplay.className}`}>
+                  <span className="criterion-icon">{statusDisplay.icon}</span>
+                  <span className="criterion-name">{formatCriterionName(criterion)}</span>
+                  <span className="criterion-status">{statusDisplay.label}</span>
+                </div>
               );
-            })
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Additional Recommendations */}
-      {recommendations.filter(r => r.priority !== 'high').length > 0 && (
-        <Card sx={{ mt: 2 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Additional Recommendations
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {recommendations
-              .filter(r => r.priority !== 'high')
-              .map((rec, index) => (
-                <Alert 
-                  key={index} 
-                  severity="info"
-                  sx={{ mb: 1 }}
-                >
-                  {rec.message}
-                </Alert>
-              ))
-            }
-          </CardContent>
-        </Card>
+            })}
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   );
-}
+};
+
+export default CoverageDisplay;

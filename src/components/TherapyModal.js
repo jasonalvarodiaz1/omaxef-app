@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { CoverageDisplay } from "./CoverageDisplay";
+import CoverageDisplay from "./CoverageDisplay";
 import PAForm from "./PAForm";
-import { getCoverageForDrug } from "../utils/coverageLogic";
+import { getCriteriaForMedication } from "../utils/coverageLogic";
 
 // Import directly - no PatientContext needed since we pass patient as prop
 function TherapyModalContent({
@@ -303,18 +303,19 @@ export default function TherapyModal({
     }
     
     try {
-      const result = getCoverageForDrug(drugCoverage, patient.insurance, selectedDrug.name);
-      if (!result) {
-        setCoverageError(`Coverage not found for ${selectedDrug.name} under ${patient.insurance}`);
+      // Get criteria for the medication - simplified coverage check
+      const criteria = getCriteriaForMedication(selectedDrug.name, selectedDose);
+      if (!criteria || Object.keys(criteria).length === 0) {
+        setCoverageError(`Coverage criteria not found for ${selectedDrug.name}`);
         return null;
       }
       setCoverageError(null);
-      return result;
+      return { paRequired: true, criteria }; // Return simplified coverage object
     } catch (error) {
       setCoverageError(`Error checking coverage: ${error.message}`);
       return null;
     }
-  }, [patient, selectedDrug, drugCoverage]);
+  }, [patient, selectedDrug, selectedDose, drugCoverage]);
   
   // Close modal on Escape key
   useEffect(() => {

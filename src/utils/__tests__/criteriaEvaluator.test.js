@@ -1,534 +1,536 @@
-import { criteriaEvaluator } from '../criteriaEvaluator';
-import { CriteriaStatus } from '../../constants';
+import { normalizeStatus, CriteriaStatus } from '../constants';
+import { 
+  extractLatestObservation, 
+  extractConditions, 
+  extractMedicationHistory,
+  calculateBMI,
+  parseNumericValue,
+  getPatientAge
+} from './fhirHelpers';
 
-// Mock fhirHelpers if it's being used
-const mockFhirHelpers = {
-  getLatestObservation: jest.fn(),
-  getObservationsByCode: jest.fn(),
-  extractNumericValue: jest.fn(),
-  getMedicationHistory: jest.fn()
-};
+// Main evaluation function
+export function evaluateCriteria(criterionName, patientData, config = {}) {
+  if (!patientData) {
+    return {
+      status: CriteriaStatus.ERROR,
+      reason: 'No patient data available',
+      displayValue: null
+    };
+  }
 
-describe.skip('Criteria Evaluator - Critical Tests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  try {
+    switch (criterionName) {
+      case 'age':
+        return evaluateAge(patientData, config);
+      
+      case 'bmi':
+        return evaluateBMI(patientData, config);
+      
+      case 'doseProgression':
+        return evaluateDoseProgression(patientData, config);
+      
+      case 'maintenance':
+        return evaluateMaintenance(patientData, config);
+      
+      case 'weightLoss':
+        return evaluateWeightLoss(patientData, config);
+      
+      case 'documentation':
+        return evaluateDocumentation(patientData, config);
+      
+      case 'comorbidity':
+        return evaluateComorbidity(patientData, config);
+      
+      case 'noOpioidUse':
+        return evaluateNoOpioidUse(patientData, config);
+      
+      case 'diabetesPreferred':
+        return evaluateDiabetesPreference(patientData, config);
+      
+      default:
+        return {
+          status: CriteriaStatus.NOT_APPLICABLE,
+          reason: `Unknown criterion: ${criterionName}`,
+          displayValue: null
+        };
+    }
+  } catch (error) {
+    console.error(`Error evaluating ${criterionName}:`, error);
+    return {
+      status: CriteriaStatus.ERROR,
+      reason: `Evaluation error: ${error.message}`,
+      displayValue: null
+    };
+  }
+}
 
-  describe('evaluateBMI', () => {
-    it('should return MET when BMI meets threshold for weight-related comorbidity', async () => {
-      const patient = {
-        id: 'test-patient',
-        comorbidities: ['type-2-diabetes'],
-        observations: []
+// Age evaluation
+function evaluateAge(patientData, config) {
+  const minAge = config.min || 18;
+  const age = getPatientAge(patientData);
+
+  if (age === null) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: 'Unable to determine patient age',
+      displayValue: 'Unknown'
+    };
+  }
+
+  if (age >= minAge) {
+    return {
+      status: CriteriaStatus.MET,
+      reason: `Patient is ${age} years old (≥${minAge} required)`,
+      displayValue: `${age} years`
+    };
+  }
+
+  return {
+    status: CriteriaStatus.NOT_MET,
+    reason: `Patient is ${age} years old (<${minAge} required)`,
+    displayValue: `${age} years`
+  };
+}
+
+// BMI evaluation
+function evaluateBMI(patientData, config) {
+  const minBMI = config.min || 27;
+  const requireComorbidity = config.requireComorbidity || false;
+  
+  const bmi = calculateBMI(patientData);
+
+  if (bmi === null) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: 'BMI cannot be calculated - missing height or weight data',
+      displayValue: 'Not available'
+    };
+  }
+
+  const bmiValue = Math.round(bmi * 10) / 10;
+
+  // Check if BMI meets base requirement
+  if (bmi >= minBMI) {
+    // If comorbidity is required with lower BMI threshold
+    if (requireComorbidity && bmi < 30) {
+      const comorbidities = extractConditions(patientData);
+      const hasQualifyingComorbidity = checkForQualifyingComorbidities(comorbidities);
+      
+      if (hasQualifyingComorbidity) {
+        return {
+          status: CriteriaStatus.MET,
+          reason: `BMI ${bmiValue} with qualifying comorbidity`,
+          displayValue: `${bmiValue} kg/m²`
+        };
+      } else {
+        return {
+          status: CriteriaStatus.PARTIAL,
+          reason: `BMI ${bmiValue} requires comorbidity documentation`,
+          displayValue: `${bmiValue} kg/m²`
+        };
+      }
+    }
+    
+    return {
+      status: CriteriaStatus.MET,
+      reason: `BMI ${bmiValue} meets requirement (≥${minBMI})`,
+      displayValue: `${bmiValue} kg/m²`
+    };
+  }
+
+  return {
+    status: CriteriaStatus.NOT_MET,
+    reason: `BMI ${bmiValue} below requirement (<${minBMI})`,
+    displayValue: `${bmiValue} kg/m²`
+  };
+}
+
+// Dose progression evaluation
+function evaluateDoseProgression(patientData, config) {
+  const medication = config.medication;
+  const currentDose = config.dose;
+  
+  if (!medication || !currentDose) {
+    return {
+      status: CriteriaStatus.NOT_APPLICABLE,
+      reason: 'Medication or dose not specified',
+      displayValue: null
+    };
+  }
+
+  const medicationHistory = extractMedicationHistory(patientData, medication);
+  
+  if (!medicationHistory || medicationHistory.length === 0) {
+    // First time on this medication
+    if (isStartingDose(medication, currentDose)) {
+      return {
+        status: CriteriaStatus.MET,
+        reason: 'Starting dose - appropriate initiation',
+        displayValue: currentDose
       };
-
-      const criterion = {
-        type: 'bmi',
-        threshold: 27,
-        critical: true,
-        description: 'BMI ≥ 27 with weight-related comorbidity'
+    } else {
+      return {
+        status: CriteriaStatus.NOT_MET,
+        reason: 'Initial dose higher than recommended starting dose',
+        displayValue: currentDose
       };
+    }
+  }
 
-      // Mock FHIR helpers to return BMI observation
-      mockFhirHelpers.getLatestObservation.mockResolvedValue({
-        code: { coding: [{ code: '39156-5' }] },
-        valueQuantity: { value: 32.9, unit: 'kg/m2' },
-        effectiveDateTime: new Date().toISOString()
+  // Check dose escalation pattern
+  const escalationValid = checkDoseEscalation(medicationHistory, currentDose, medication);
+  
+  if (escalationValid.isValid) {
+    return {
+      status: CriteriaStatus.MET,
+      reason: escalationValid.reason,
+      displayValue: `${escalationValid.duration} on therapy`
+    };
+  } else {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: escalationValid.reason,
+      displayValue: currentDose
+    };
+  }
+}
+
+// Maintenance evaluation
+function evaluateMaintenance(patientData, config) {
+  const medication = config.medication;
+  const currentDose = config.dose;
+  
+  const medicationHistory = extractMedicationHistory(patientData, medication);
+  
+  if (!medicationHistory || medicationHistory.length === 0) {
+    return {
+      status: CriteriaStatus.NOT_APPLICABLE,
+      reason: 'No medication history available',
+      displayValue: null
+    };
+  }
+
+  // Check if on max dose for sufficient duration
+  const maxDoseDuration = getMaxDoseDuration(medicationHistory, medication);
+  
+  if (maxDoseDuration >= 12) { // 12 weeks on max dose
+    return {
+      status: CriteriaStatus.MET,
+      reason: `On maximum dose for ${maxDoseDuration} weeks`,
+      displayValue: `${maxDoseDuration} weeks`
+    };
+  } else if (maxDoseDuration > 0) {
+    return {
+      status: CriteriaStatus.PARTIAL,
+      reason: `On maximum dose for only ${maxDoseDuration} weeks`,
+      displayValue: `${maxDoseDuration} weeks`
+    };
+  }
+
+  return {
+    status: CriteriaStatus.NOT_MET,
+    reason: 'Not yet on maintenance dose',
+    displayValue: 'Not on max dose'
+  };
+}
+
+// Weight loss evaluation
+function evaluateWeightLoss(patientData, config) {
+  const threshold = config.threshold || 5; // Default 5% weight loss
+  const timeframe = config.timeframe || 12; // Default 12 weeks
+  
+  const weightHistory = extractWeightHistory(patientData);
+  
+  if (!weightHistory || weightHistory.length < 2) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: 'Insufficient weight history for evaluation',
+      displayValue: 'Insufficient data'
+    };
+  }
+
+  const baselineWeight = getBaselineWeight(weightHistory, timeframe);
+  const currentWeight = weightHistory[weightHistory.length - 1].value;
+  
+  if (!baselineWeight || !currentWeight) {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: 'Unable to determine baseline or current weight',
+      displayValue: 'Missing data'
+    };
+  }
+
+  const weightLossPercent = ((baselineWeight - currentWeight) / baselineWeight) * 100;
+  const weightLossAmount = baselineWeight - currentWeight;
+  const roundedPercent = Math.round(weightLossPercent * 10) / 10;
+
+  if (weightLossPercent >= threshold) {
+    return {
+      status: CriteriaStatus.MET,
+      reason: `${roundedPercent}% weight loss achieved (≥${threshold}% required)`,
+      displayValue: `${roundedPercent}% (${Math.round(weightLossAmount)} lbs)`
+    };
+  } else if (weightLossPercent > 0) {
+    return {
+      status: CriteriaStatus.PARTIAL,
+      reason: `${roundedPercent}% weight loss (<${threshold}% required)`,
+      displayValue: `${roundedPercent}% (${Math.round(weightLossAmount)} lbs)`
+    };
+  } else {
+    return {
+      status: CriteriaStatus.NOT_MET,
+      reason: 'No weight loss or weight gain observed',
+      displayValue: `${roundedPercent}%`
+    };
+  }
+}
+
+// Documentation evaluation
+function evaluateDocumentation(patientData, config) {
+  const requiredDocs = config.requiredDocuments || [
+    'lifestyle_modification',
+    'diet_counseling',
+    'exercise_counseling',
+    'behavioral_therapy'
+  ];
+
+  const documentationStatus = checkDocumentation(patientData, requiredDocs);
+  
+  if (documentationStatus.complete) {
+    return {
+      status: CriteriaStatus.MET,
+      reason: 'All required documentation present',
+      displayValue: `${documentationStatus.found.length}/${requiredDocs.length} complete`
+    };
+  } else if (documentationStatus.found.length > 0) {
+    return {
+      status: CriteriaStatus.PARTIAL,
+      reason: `Missing: ${documentationStatus.missing.join(', ')}`,
+      displayValue: `${documentationStatus.found.length}/${requiredDocs.length} complete`
+    };
+  }
+
+  return {
+    status: CriteriaStatus.NOT_MET,
+    reason: 'Required clinical documentation not found',
+    displayValue: '0 documents'
+  };
+}
+
+// Comorbidity evaluation
+function evaluateComorbidity(patientData, config) {
+  const conditions = extractConditions(patientData);
+  const qualifyingConditions = [
+    'diabetes',
+    'hypertension',
+    'dyslipidemia',
+    'sleep apnea',
+    'cardiovascular disease',
+    'osteoarthritis',
+    'NASH',
+    'PCOS'
+  ];
+
+  const foundConditions = [];
+  
+  for (const condition of conditions) {
+    const conditionText = (condition.display || '').toLowerCase();
+    for (const qualifying of qualifyingConditions) {
+      if (conditionText.includes(qualifying.toLowerCase())) {
+        foundConditions.push(qualifying);
+        break;
+      }
+    }
+  }
+
+  if (foundConditions.length > 0) {
+    return {
+      status: CriteriaStatus.MET,
+      reason: `Qualifying conditions: ${foundConditions.join(', ')}`,
+      displayValue: `${foundConditions.length} conditions`
+    };
+  }
+
+  return {
+    status: CriteriaStatus.NOT_MET,
+    reason: 'No qualifying comorbidities documented',
+    displayValue: 'None found'
+  };
+}
+
+// No opioid use evaluation (for Contrave)
+function evaluateNoOpioidUse(patientData, config) {
+  const medicationHistory = extractMedicationHistory(patientData);
+  const opioidKeywords = ['opioid', 'morphine', 'oxycodone', 'hydrocodone', 'fentanyl', 'tramadol', 'codeine'];
+  
+  for (const med of medicationHistory) {
+    const medName = (med.display || '').toLowerCase();
+    for (const keyword of opioidKeywords) {
+      if (medName.includes(keyword)) {
+        return {
+          status: CriteriaStatus.NOT_MET,
+          reason: `Opioid use detected: ${med.display}`,
+          displayValue: 'Contraindicated'
+        };
+      }
+    }
+  }
+
+  return {
+    status: CriteriaStatus.MET,
+    reason: 'No opioid use detected',
+    displayValue: 'Clear'
+  };
+}
+
+// Diabetes preference evaluation
+function evaluateDiabetesPreference(patientData, config) {
+  const conditions = extractConditions(patientData);
+  
+  for (const condition of conditions) {
+    const conditionText = (condition.display || '').toLowerCase();
+    if (conditionText.includes('diabetes') || conditionText.includes('dm2') || conditionText.includes('t2dm')) {
+      return {
+        status: CriteriaStatus.MET,
+        reason: 'Patient has diabetes - medication has dual indication',
+        displayValue: 'Diabetes present'
+      };
+    }
+  }
+
+  return {
+    status: CriteriaStatus.NOT_APPLICABLE,
+    reason: 'No diabetes diagnosis',
+    displayValue: 'N/A'
+  };
+}
+
+// Helper functions
+function isStartingDose(medication, dose) {
+  const startingDoses = {
+    'Wegovy': '0.25 mg',
+    'Ozempic': '0.25 mg',
+    'Zepbound': '2.5 mg',
+    'Mounjaro': '2.5 mg',
+    'Saxenda': '0.6 mg',
+    'Contrave': '1 tablet',
+    'Qsymia': '3.75 mg/23 mg'
+  };
+  
+  return startingDoses[medication] === dose;
+}
+
+function checkDoseEscalation(history, currentDose, medication) {
+  // Simplified dose escalation check
+  // In production, this would check proper titration schedule
+  const treatmentDuration = calculateTreatmentDuration(history);
+  
+  if (treatmentDuration < 4) {
+    return {
+      isValid: false,
+      reason: 'Insufficient treatment duration for dose escalation',
+      duration: `${treatmentDuration} weeks`
+    };
+  }
+
+  return {
+    isValid: true,
+    reason: 'Appropriate dose escalation documented',
+    duration: `${treatmentDuration} weeks`
+  };
+}
+
+function getMaxDoseDuration(history, medication) {
+  const maxDoses = {
+    'Wegovy': '2.4 mg',
+    'Ozempic': '2 mg',
+    'Zepbound': '15 mg',
+    'Mounjaro': '15 mg',
+    'Saxenda': '3 mg'
+  };
+
+  const maxDose = maxDoses[medication];
+  if (!maxDose) return 0;
+
+  // Calculate weeks on max dose
+  let weeksOnMax = 0;
+  for (const entry of history) {
+    if (entry.dose === maxDose) {
+      weeksOnMax += entry.duration || 1;
+    }
+  }
+
+  return weeksOnMax;
+}
+
+function extractWeightHistory(patientData) {
+  if (!patientData.observations) return [];
+  
+  const weights = [];
+  for (const obs of patientData.observations) {
+    if (obs.code?.coding?.some(c => c.code === '29463-7' || c.display?.includes('weight'))) {
+      weights.push({
+        date: new Date(obs.effectiveDateTime),
+        value: parseNumericValue(obs.valueQuantity)
       });
-      mockFhirHelpers.extractNumericValue.mockReturnValue(32.9);
-
-      const result = await criteriaEvaluator.evaluateBMI(patient, criterion, mockFhirHelpers);
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.displayValue).toContain('32.9');
-      expect(result.confidence).toBeDefined();
-      expect(result.confidence).toBeGreaterThan(0.8);
-    });
-
-    it('should return NOT_MET when no weight-related comorbidity', async () => {
-      const patient = {
-        id: 'test-patient',
-        comorbidities: [], // No weight-related conditions
-        observations: []
-      };
-
-      const criterion = {
-        type: 'bmi',
-        threshold: 27,
-        critical: true
-      };
-
-      // Mock FHIR helpers to return BMI observation
-      mockFhirHelpers.getLatestObservation.mockResolvedValue({
-        code: { coding: [{ code: '39156-5' }] },
-        valueQuantity: { value: 28, unit: 'kg/m2' },
-        effectiveDateTime: new Date().toISOString()
-      });
-      mockFhirHelpers.extractNumericValue.mockReturnValue(28);
-
-      const result = await criteriaEvaluator.evaluateBMI(patient, criterion, mockFhirHelpers);
-
-      expect(result.status).toBe(CriteriaStatus.NOT_MET);
-      expect(result.reason).toContain('below threshold');
-    });
-
-    it('should return PENDING_DOCUMENTATION when weight data missing', async () => {
-      const patient = {
-        id: 'test-patient',
-        comorbidities: ['type-2-diabetes'],
-        observations: []
-      };
-
-      const criterion = {
-        type: 'bmi',
-        threshold: 27,
-        critical: false // Non-critical
-      };
-
-      // Mock no BMI observation found
-      mockFhirHelpers.getLatestObservation.mockResolvedValue(null);
-
-      const result = await criteriaEvaluator.evaluateBMI(patient, criterion, mockFhirHelpers);
-
-      expect(result.status).toBe(CriteriaStatus.PENDING_DOCUMENTATION);
-    });
-
-    it('should reduce confidence for stale weight data', async () => {
-      const oldDate = new Date();
-      oldDate.setDate(oldDate.getDate() - 100); // 100 days old
-
-      const patient = {
-        id: 'test-patient',
-        comorbidities: ['type-2-diabetes'],
-        observations: []
-      };
-
-      const criterion = {
-        type: 'bmi',
-        threshold: 27,
-        critical: true
-      };
-
-      // Mock old BMI observation
-      mockFhirHelpers.getLatestObservation.mockResolvedValue({
-        code: { coding: [{ code: '39156-5' }] },
-        valueQuantity: { value: 32, unit: 'kg/m2' },
-        effectiveDateTime: oldDate.toISOString()
-      });
-      mockFhirHelpers.extractNumericValue.mockReturnValue(32);
-
-      const result = await criteriaEvaluator.evaluateBMI(patient, criterion, mockFhirHelpers);
-
-      expect(result.confidence).toBeDefined();
-      expect(result.confidence).toBeLessThan(1.0); // Confidence reduced due to stale data
-    });
-  });
-
-  describe('evaluateDoseProgression', () => {
-    it('should block drug-naive patients from non-starting doses', () => {
-      const patient = {
-        id: 'andre-patel',
-        medications: [] // Drug-naive
-      };
-
-      const drug = {
-        name: 'Wegovy',
-        code: 'wegovy',
-        doses: [
-          { value: '0.25', unit: 'mg', isStarting: true },
-          { value: '0.5', unit: 'mg', isStarting: false },
-          { value: '1.0', unit: 'mg', isStarting: false },
-          { value: '1.7', unit: 'mg', isStarting: false },
-          { value: '2.4', unit: 'mg', isStarting: false }
-        ]
-      };
-
-      const criterion = {
-        type: 'doseProgression',
-        critical: true
-      };
-
-      // Try to start at 1.7mg (should fail)
-      const selectedDose = '1.7';
-
-      const result = criteriaEvaluator.evaluateDoseProgression(
-        patient,
-        criterion,
-        drug,
-        selectedDose
-      );
-
-      expect(result.status).toBe(CriteriaStatus.NOT_MET);
-      expect(result.reason).toContain('must start');
-      expect(result.reason).toContain('0.25');
-    });
-
-    it('should allow proper dose titration after sufficient time', () => {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 35); // 35 days ago
-
-      const patient = {
-        id: 'test-patient',
-        medications: [
-          {
-            name: 'Wegovy',
-            dose: '0.25',
-            unit: 'mg',
-            startDate: startDate.toISOString(),
-            status: 'active'
-          }
-        ]
-      };
-
-      const drug = {
-        name: 'Wegovy',
-        code: 'wegovy',
-        doses: [
-          { value: '0.25', unit: 'mg', minimumDays: 28 },
-          { value: '0.5', unit: 'mg', minimumDays: 28 }
-        ]
-      };
-
-      const criterion = { type: 'doseProgression', critical: true };
-      const selectedDose = '0.5'; // Next dose up
-
-      const result = criteriaEvaluator.evaluateDoseProgression(
-        patient,
-        criterion,
-        drug,
-        selectedDose
-      );
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.reason).toContain('appropriate');
-    });
-
-    it('should block escalation if insufficient time on current dose', () => {
-      const recentStart = new Date();
-      recentStart.setDate(recentStart.getDate() - 10); // Only 10 days
-
-      const patient = {
-        id: 'test-patient',
-        medications: [
-          {
-            name: 'Wegovy',
-            dose: '0.25',
-            unit: 'mg',
-            startDate: recentStart.toISOString(),
-            status: 'active'
-          }
-        ]
-      };
-
-      const drug = {
-        name: 'Wegovy',
-        code: 'wegovy',
-        doses: [
-          { value: '0.25', unit: 'mg', minimumDays: 28 },
-          { value: '0.5', unit: 'mg', minimumDays: 28 }
-        ]
-      };
-
-      const criterion = { type: 'doseProgression', critical: true };
-      const selectedDose = '0.5';
-
-      const result = criteriaEvaluator.evaluateDoseProgression(
-        patient,
-        criterion,
-        drug,
-        selectedDose
-      );
-
-      expect(result.status).toBe(CriteriaStatus.NOT_MET);
-      expect(result.reason).toContain('only 10 days');
-    });
-
-    it('should block escalation beyond max dose', () => {
-      const patient = {
-        id: 'sarah-johnson',
-        medications: [
-          {
-            name: 'Wegovy',
-            dose: '2.4',
-            unit: 'mg',
-            startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'active'
-          }
-        ]
-      };
-
-      const drug = {
-        name: 'Wegovy',
-        code: 'wegovy',
-        doses: [
-          { value: '2.4', unit: 'mg', isMaxDose: true }
-        ]
-      };
-
-      const criterion = { type: 'doseProgression', critical: true };
-      const selectedDose = '2.4'; // Already on max
-
-      const result = criteriaEvaluator.evaluateDoseProgression(
-        patient,
-        criterion,
-        drug,
-        selectedDose
-      );
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.reason).toContain('max');
-    });
-  });
-
-  describe('evaluateWeightLoss', () => {
-    it('should calculate weight loss percentage correctly', () => {
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-      const patient = {
-        id: 'test-patient',
-        weightHistory: [
-          { value: 100, unit: 'kg', date: threeMonthsAgo.toISOString() },
-          { value: 95, unit: 'kg', date: new Date().toISOString() }
-        ]
-      };
-
-      const criterion = {
-        type: 'weightLoss',
-        targetPercentage: 5,
-        periodMonths: 3,
-        critical: false
-      };
-
-      const result = criteriaEvaluator.evaluateWeightLoss(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.displayValue).toContain('5.0%');
-      expect(result.confidence).toBeGreaterThan(0.8);
-    });
-
-    it('should return NOT_APPLICABLE when no weight history for non-critical', () => {
-      const patient = {
-        id: 'test-patient',
-        weightHistory: []
-      };
-
-      const criterion = {
-        type: 'weightLoss',
-        targetPercentage: 5,
-        critical: false
-      };
-
-      const result = criteriaEvaluator.evaluateWeightLoss(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.NOT_APPLICABLE);
-    });
-
-    it('should detect weight regain', () => {
-      const patient = {
-        id: 'test-patient',
-        weightHistory: [
-          { value: 100, unit: 'kg', date: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() },
-          { value: 92, unit: 'kg', date: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() },
-          { value: 96, unit: 'kg', date: new Date().toISOString() } // Regain
-        ]
-      };
-
-      const criterion = {
-        type: 'weightLoss',
-        targetPercentage: 5,
-        critical: false
-      };
-
-      const result = criteriaEvaluator.evaluateWeightLoss(patient, criterion);
-
-      expect(result.evidence).toContainEqual(
-        expect.objectContaining({
-          type: 'warning',
-          message: expect.stringContaining('regain')
-        })
-      );
-    });
-  });
-
-  describe('evaluateWeightMaintenance', () => {
-    it('should pass when weight maintained within 1% tolerance', () => {
-      const patient = {
-        id: 'test-patient',
-        weightHistory: [
-          { value: 90, unit: 'kg', date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() },
-          { value: 90.5, unit: 'kg', date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
-          { value: 89.8, unit: 'kg', date: new Date().toISOString() }
-        ]
-      };
-
-      const criterion = {
-        type: 'weightMaintenance',
-        tolerancePercent: 1,
-        critical: false
-      };
-
-      const result = criteriaEvaluator.evaluateWeightMaintenance(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.displayValue).toContain('maintained');
-    });
-  });
-
-  describe('evaluateContraindications', () => {
-    it('should fail when patient has absolute contraindication', () => {
-      const patient = {
-        id: 'test-patient',
-        contraindications: ['medullary-thyroid-cancer']
-      };
-
-      const criterion = {
-        type: 'contraindications',
-        critical: true
-      };
-
-      const result = criteriaEvaluator.evaluateContraindications(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.NOT_MET);
-      expect(result.reason).toContain('absolute contraindication');
-    });
-
-    it('should pass when no contraindications', () => {
-      const patient = {
-        id: 'test-patient',
-        contraindications: []
-      };
-
-      const criterion = {
-        type: 'contraindications',
-        critical: true
-      };
-
-      const result = criteriaEvaluator.evaluateContraindications(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-    });
-  });
-
-  describe('evaluateDocumentation', () => {
-    it('should return MET when all required docs present', () => {
-      const patient = {
-        id: 'test-patient',
-        documentation: [
-          {
-            type: 'clinical_note',
-            date: new Date().toISOString(),
-            clinicalRationale: 'Patient meets all criteria for weight management medication with documented failed lifestyle interventions and comorbidities.'
-          },
-          {
-            type: 'consent_form',
-            date: new Date().toISOString(),
-            clinicalRationale: 'Informed consent obtained and documented.'
-          }
-        ]
-      };
-
-      const criterion = {
-        type: 'documentation',
-        required: ['clinical_note', 'consent_form'],
-        critical: true
-      };
-
-      const result = criteriaEvaluator.evaluateDocumentation(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.MET);
-      expect(result.displayValue).toBe('2/2 documented');
-    });
-
-    it('should return NOT_APPLICABLE when docs missing and not critical', () => {
-      const patient = {
-        id: 'test-patient',
-        documentation: []
-      };
-
-      const criterion = {
-        type: 'documentation',
-        required: ['clinical_note'],
-        critical: false
-      };
-
-      const result = criteriaEvaluator.evaluateDocumentation(patient, criterion);
-
-      expect(result.status).toBe(CriteriaStatus.NOT_APPLICABLE);
-    });
-
-    it('should reduce confidence for outdated documentation', () => {
-      const oldDate = new Date();
-      oldDate.setDate(oldDate.getDate() - 180); // 6 months old
-
-      const patient = {
-        id: 'test-patient',
-        documentation: [
-          {
-            type: 'clinical_note',
-            date: oldDate.toISOString(),
-            clinicalRationale: 'Old clinical rationale that needs updating.'
-          }
-        ]
-      };
-
-      const criterion = {
-        type: 'documentation',
-        required: ['clinical_note'],
-        critical: true
-      };
-
-      const result = criteriaEvaluator.evaluateDocumentation(patient, criterion);
-
-      expect(result.confidence).toBeLessThan(0.9);
-      expect(result.evidence).toContainEqual(
-        expect.objectContaining({
-          type: 'warning',
-          message: expect.stringContaining('old')
-        })
-      );
-    });
-  });
-
-  describe('Indication-based PA criteria', () => {
-    it('should apply diabetes criteria when indication is diabetes', () => {
-      const patient = {
-        id: 'test-patient',
-        comorbidities: ['type-2-diabetes'],
-        insurance: 'Blue Cross Blue Shield'
-      };
-
-      const drug = {
-        name: 'Ozempic',
-        code: 'ozempic',
-        indications: ['diabetes', 'weight-loss']
-      };
-
-      const indication = 'diabetes';
-
-      // This test would call your actual coverage logic
-      // Just ensuring the pattern is correct
-      expect(indication).toBe('diabetes');
-      expect(drug.indications).toContain('diabetes');
-    });
-
-    it('should deny Medicare coverage for weight loss indication', () => {
-      const patient = {
-        id: 'maria-gomez',
-        insurance: 'Medicare Part D'
-      };
-
-      const drug = {
-        name: 'Ozempic',
-        code: 'ozempic'
-      };
-
-      const indication = 'weight-loss';
-
-      // Medicare/Medicare Part D cannot cover weight loss indication
-      expect(patient.insurance).toContain('Medicare');
-      expect(indication).toBe('weight-loss');
-      // Your coverage logic should deny this
-    });
-  });
-});
+    }
+  }
+
+  return weights.sort((a, b) => a.date - b.date);
+}
+
+function getBaselineWeight(history, weeksAgo) {
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() - (weeksAgo * 7));
+  
+  // Find weight closest to target date
+  let closest = null;
+  let minDiff = Infinity;
+  
+  for (const entry of history) {
+    const diff = Math.abs(entry.date - targetDate);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = entry;
+    }
+  }
+
+  return closest?.value;
+}
+
+function checkForQualifyingComorbidities(conditions) {
+  const qualifying = ['diabetes', 'hypertension', 'dyslipidemia', 'sleep apnea'];
+  
+  for (const condition of conditions) {
+    const conditionText = (condition.display || '').toLowerCase();
+    if (qualifying.some(q => conditionText.includes(q))) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+function checkDocumentation(patientData, requiredDocs) {
+  const found = [];
+  const missing = [];
+  
+  // Check for documentation in notes/documents
+  const notes = patientData.documentReference || [];
+  const noteTexts = notes.map(n => (n.description || '').toLowerCase());
+  
+  for (const doc of requiredDocs) {
+    const docFound = noteTexts.some(text => 
+      text.includes(doc.replace('_', ' '))
+    );
+    
+    if (docFound) {
+      found.push(doc);
+    } else {
+      missing.push(doc);
+    }
+  }
+
+  return {
+    complete: missing.length === 0,
+    found,
