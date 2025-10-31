@@ -180,12 +180,9 @@ function TherapyModalContent({
               )}
               
               <CoverageDisplay
-                insurance={patient.insurance}
-                drugName={selectedDrug?.name}
-                selectedDose={selectedDose}
-                selectedPatient={patient}
-                drugCoverage={drugCoverage}
-                indication={selectedIndication}
+                patientData={patient}
+                medication={selectedDrug?.name}
+                dose={selectedDose}
               />
               {/* PA Button logic: only show after dose is selected and PA is required */}
               {selectedDose && coverage && coverage.paRequired && !therapySubmitted && !paFormOpen && !paFormSubmitted && (
