@@ -112,44 +112,47 @@ export function getCriteriaForMedication(medication, _dose) {
   if (!drugProfile) {
     // Default criteria for unknown medications
     return {
-      age: { required: true, min: 18 },
-      bmi: { required: true, min: 27 },
-      doseProgression: { required: true },
-      maintenance: { required: false },
-      weightLoss: { required: true, threshold: 5 },
-      documentation: { required: true }
+      age: { required: true, type: 'age', minAge: 18 },
+      bmi: { required: true, type: 'bmi', minimum: 27 },
+      doseProgression: { required: true, type: 'doseProgression' },
+      maintenance: { required: false, type: 'maintenance' },
+      weightLoss: { required: true, type: 'weightLoss', requiredPercent: 5 },
+      documentation: { required: true, type: 'documentation' }
     };
   }
 
   const criteria = {
-    age: { required: true, min: 18 },
+    age: { required: true, type: 'age', minAge: 18 },
     bmi: { 
-      required: drugProfile.criteriaProfile.requiresBMI, 
-      min: drugProfile.criteriaProfile.minBMI 
+      required: drugProfile.criteriaProfile.requiresBMI,
+      type: 'bmi',
+      minimum: drugProfile.criteriaProfile.minBMI 
     },
     doseProgression: { 
-      required: drugProfile.criteriaProfile.requiresDoseProgression 
+      required: drugProfile.criteriaProfile.requiresDoseProgression,
+      type: 'doseProgression'
     },
-    maintenance: { required: false },
+    maintenance: { required: false, type: 'maintenance' },
     weightLoss: { 
       required: drugProfile.criteriaProfile.requiresWeightLoss,
-      threshold: drugProfile.criteriaProfile.minWeightLossPercent 
+      type: 'weightLoss',
+      requiredPercent: drugProfile.criteriaProfile.minWeightLossPercent 
     },
-    documentation: { required: true }
+    documentation: { required: true, type: 'documentation' }
   };
 
   // Add comorbidity requirement if applicable
   if (drugProfile.criteriaProfile.requiresComorbidity) {
-    criteria.comorbidity = { required: true };
+    criteria.comorbidity = { required: true, type: 'comorbidity' };
   }
 
   // Add special requirements
   if (drugProfile.criteriaProfile.noOpioidUse) {
-    criteria.noOpioidUse = { required: true };
+    criteria.noOpioidUse = { required: true, type: 'noOpioidUse' };
   }
 
   if (drugProfile.criteriaProfile.diabetesIndication) {
-    criteria.diabetesPreferred = { required: false, preferred: true };
+    criteria.diabetesPreferred = { required: false, type: 'diabetesPreferred', preferred: true };
   }
 
   return criteria;
