@@ -1,8 +1,7 @@
 import { normalizeStatus, CriteriaStatus } from '../constants.js';
-import { evaluateCriterion } from './criteriaEvaluator.js';
 
 // Enhanced medication database with starting doses and criteria
-const MEDICATION_DATABASE = {
+export const MEDICATION_DATABASE = {
   'Wegovy': {
     displayName: 'Wegovy (semaglutide)',
     category: 'GLP-1',
@@ -406,6 +405,3 @@ function generateRecommendationForCriterion(criterion, result, isRequired) {
       return null;
   }
 }
-
-// Export additional utilities
-export { MEDICATION_DATABASE };
