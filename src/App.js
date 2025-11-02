@@ -196,30 +196,30 @@ function AppContent() {
   const tabNames = ['Summary', 'Medications', 'Results'];
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
       {/* Dev Mode Banner */}
       {devMode && (
-        <div className="bg-yellow-100 border-b border-yellow-300 px-4 py-2 text-sm text-yellow-800">
+        <div className="bg-yellow-900 border-b border-yellow-700 px-4 py-2 text-sm text-yellow-200">
           <strong>Dev Mode:</strong> Using mock patient data. Remove ?dev=true for Epic integration.
         </div>
       )}
 
       {/* Error Banner */}
       {authError && !devMode && (
-        <div className="bg-red-100 border-b-2 border-red-400 px-6 py-3 flex items-center justify-between">
+        <div className="bg-red-900 border-b-2 border-red-700 px-6 py-3 flex items-center justify-between">
           <div className="flex-1">
-            <strong className="text-red-800">Error:</strong>
-            <span className="text-red-700 ml-2">{authError.message || authError.error}</span>
+            <strong className="text-red-200">Error:</strong>
+            <span className="text-red-300 ml-2">{authError.message || authError.error}</span>
             {authError.error === 'not_epic_launch' && (
               <button 
                 onClick={enableDevMode}
-                className="ml-4 bg-yellow-500 text-white px-4 py-1 rounded hover:bg-yellow-600 font-semibold"
+                className="ml-4 bg-yellow-600 text-white px-4 py-1 rounded hover:bg-yellow-500 font-semibold"
               >
                 Enable Dev Mode
               </button>
             )}
           </div>
-          <button onClick={clearError} className="text-red-800 text-2xl font-bold hover:text-red-600">×</button>
+          <button onClick={clearError} className="text-red-200 text-2xl font-bold hover:text-red-400">×</button>
         </div>
       )}
 
@@ -232,7 +232,7 @@ function AppContent() {
             {authError && authError.error === 'not_epic_launch' && (
               <button 
                 onClick={enableDevMode}
-                className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100"
+                className="bg-slate-800 text-blue-400 px-6 py-3 rounded-lg font-semibold hover:bg-slate-700"
               >
                 Use Dev Mode Instead
               </button>
@@ -243,12 +243,12 @@ function AppContent() {
         <div className="flex flex-row flex-1">
           {/* Sidebar with Patient Selection */}
           {devMode ? (
-            <div className="patient-sidebar" style={{ width: '350px', height: '100vh', background: '#f8f9fa', borderRight: '1px solid #dee2e6', overflowY: 'auto', padding: '1.5rem' }}>
+            <div className="patient-sidebar" style={{ width: '350px', height: '100vh', background: '#1e293b', borderRight: '1px solid #334155', overflowY: 'auto', padding: '1.5rem' }}>
               {/* Header with Patient Selector */}
               <div className="sidebar-header" style={{ marginBottom: '1.5rem' }}>
-                <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#212529' }}>Patient Information</h2>
-                <div className="connection-status status-connected" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', padding: '0.5rem', borderRadius: '6px', fontWeight: '500', background: '#fff3cd', color: '#856404' }}>
-                  <span className="status-indicator" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffc107', boxShadow: '0 0 4px rgba(255, 193, 7, 0.6)' }}></span>
+                <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#e2e8f0' }}>Patient Information</h2>
+                <div className="connection-status status-connected" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', padding: '0.5rem', borderRadius: '6px', fontWeight: '500', background: '#78350f', color: '#fcd34d' }}>
+                  <span className="status-indicator" style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px rgba(245, 158, 11, 0.6)' }}></span>
                   Dev Mode (Mock Data)
                 </div>
               </div>
@@ -257,7 +257,7 @@ function AppContent() {
               <div style={{ marginBottom: '1.5rem' }}>
                 <input
                   type="text"
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '6px', marginBottom: '0.5rem' }}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #475569', borderRadius: '6px', marginBottom: '0.5rem', background: '#0f172a', color: '#e2e8f0' }}
                   placeholder="Search patients..."
                   value={patientSearch}
                   onChange={e => setPatientSearch(e.target.value)}
@@ -282,20 +282,20 @@ function AppContent() {
               {/* Patient Details */}
               {selectedPatient && (
                 <div className="patient-details" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Demographics</h3>
+                  <section className="detail-section" style={{ background: '#0f172a', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)', border: '1px solid #334155' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#94a3b8', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.5rem' }}>Demographics</h3>
                     <div className="detail-grid" style={{ display: 'grid', gap: '0.75rem' }}>
-                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Name:</span>
-                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.name}</span>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #1e293b' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>Name:</span>
+                        <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.name}</span>
                       </div>
-                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Age:</span>
-                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.age} years</span>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #1e293b' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>Age:</span>
+                        <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.age} years</span>
                       </div>
-                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Gender:</span>
-                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.gender || 'N/A'}</span>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #1e293b' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>Gender:</span>
+                        <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.gender || 'N/A'}</span>
                       </div>
                       <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
                         <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Insurance:</span>
