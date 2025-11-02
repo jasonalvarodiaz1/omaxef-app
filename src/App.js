@@ -379,13 +379,13 @@ function AppContent() {
           
           {/* Main content */}
           <main className="flex-1 flex flex-col overflow-y-auto" style={{ background: '#1e293b' }}>
-            <header style={{ background: '#ffffff', borderBottom: '1px solid #dee2e6', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+            <header style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}>
               <h1 style={{ margin: '0', fontSize: '1.75rem', fontWeight: '600', color: '#e2e8f0' }}>Electronic Health Record</h1>
             </header>
             
             {selectedPatient && (
               <>
-                <nav style={{ background: '#0f172a', borderBottom: '1px solid #dee2e6', display: 'flex', padding: '0 2rem' }}>
+                <nav style={{ background: '#0f172a', borderBottom: '1px solid #334155', display: 'flex', padding: '0 2rem' }}>
                   {tabNames.map(tab => (
                     <button
                       key={tab}
@@ -394,9 +394,9 @@ function AppContent() {
                         fontWeight: '500',
                         fontSize: '0.95rem',
                         border: 'none',
-                        background: activeTab === tab ? '#f8f9fa' : 'transparent',
-                        color: activeTab === tab ? '#0d6efd' : '#6c757d',
-                        borderBottom: activeTab === tab ? '3px solid #0d6efd' : '3px solid transparent',
+                        background: activeTab === tab ? '#1e293b' : 'transparent',
+                        color: activeTab === tab ? '#60a5fa' : '#94a3b8',
+                        borderBottom: activeTab === tab ? '3px solid #60a5fa' : '3px solid transparent',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         outline: 'none'
@@ -404,8 +404,8 @@ function AppContent() {
                       onClick={() => setActiveTab(tab)}
                       onMouseEnter={(e) => {
                         if (activeTab !== tab) {
-                          e.target.style.background = '#f8f9fa';
-                          e.target.style.color = '#495057';
+                          e.target.style.background = '#1e293b';
+                          e.target.style.color = '#cbd5e1';
                         }
                       }}
                       onMouseLeave={(e) => {
