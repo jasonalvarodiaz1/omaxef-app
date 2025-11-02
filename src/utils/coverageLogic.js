@@ -7,10 +7,10 @@ import { normalizeStatus, CriteriaStatus } from '../constants';
  * Get PA criteria for a specific medication and dose
  * This function provides criteria definitions for medications
  * @param {string} medicationId - Medication code or name (e.g., 'wegovy', 'ozempic')
- * @param {string} dose - Dose value (e.g., '0.25', '0.5')
+ * @param {string} _dose - Dose value (e.g., '0.25', '0.5') - currently not used in criteria selection
  * @returns {Array} Array of criteria objects
  */
-export function getCriteriaForMedication(medicationId, dose) {
+export function getCriteriaForMedication(medicationId, _dose) {
   const medId = (medicationId || '').toLowerCase();
   
   // Wegovy (semaglutide for weight management)
@@ -108,8 +108,8 @@ export function getCriteriaForMedication(medicationId, dose) {
 }
 
 export function getCoverageForDrug(drugCoverage, insurance, drugName, indication) {
-  console.log('getCoverageForDrug called:', { insurance, drugName, indication });
-  console.log('drugCoverage structure:', drugCoverage);
+  // console.log('getCoverageForDrug called:', { insurance, drugName, indication });
+  // console.log('drugCoverage structure:', drugCoverage);
   
   // Handle both formats:
   // 1. drugCoverage[insurance][drugName] - your current format
@@ -122,20 +122,20 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
   
   // If drugCoverage is already the insurance-specific object
   if (drugCoverage[drugName] && !drugCoverage[insurance]) {
-    console.log('Using direct drugCoverage lookup');
+    // console.log('Using direct drugCoverage lookup');
     return drugCoverage[drugName];
   }
   
   // Standard lookup: drugCoverage[insurance][drugName]
   if (!drugCoverage[insurance]) {
     console.error(`No coverage data for insurance: ${insurance}`);
-    console.log('Available insurances:', Object.keys(drugCoverage));
+    // console.log('Available insurances:', Object.keys(drugCoverage));
     return null;
   }
   
   if (!drugCoverage[insurance][drugName]) {
     console.error(`No coverage data for drug: ${drugName} under ${insurance}`);
-    console.log('Available drugs:', Object.keys(drugCoverage[insurance]));
+    // console.log('Available drugs:', Object.keys(drugCoverage[insurance]));
     return null;
   }
   
@@ -143,7 +143,7 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
   
   // For dual-indication drugs (Ozempic, Mounjaro), modify PA criteria based on indication
   if (indication === 'weight_loss' && (drugName === 'Ozempic' || drugName === 'Mounjaro')) {
-    console.log(`Modifying ${drugName} PA criteria for weight loss indication`);
+    // console.log(`Modifying ${drugName} PA criteria for weight loss indication`);
     
     // Medicare and Medicare Part D do NOT cover weight loss - deny immediately
     if (insurance.includes('Medicare')) {
@@ -226,7 +226,7 @@ export function getCoverageForDrug(drugCoverage, insurance, drugName, indication
     coverage.note = `OFF-LABEL USE for weight loss. ${coverage.note || ''} Insurance may deny coverage for weight loss indication. Higher denial risk than diabetes indication.`;
   }
   
-  console.log('Returning coverage:', coverage);
+  // console.log('Returning coverage:', coverage);
   return coverage;
 }
 
@@ -247,11 +247,11 @@ export function getApplicableCriteria(drug, dose, patient, drugName) {
   }
   
   const doseInfo = getDoseInfo(drug, evaluationDose);
-  let applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
+  const applicableTypes = drug.evaluationRules[doseInfo.doseType] || [];
   
   // For patients already on medication at maintenance dose, apply maintenance criteria
   // (includes weightLoss, weightMaintained, etc.)
-  const isContinuation = isCurrentlyOnMedication && drugHistory.currentDose === evaluationDose;
+  const _isContinuation = isCurrentlyOnMedication && drugHistory.currentDose === evaluationDose;
   
   // Don't filter out criteria for continuations - they need to demonstrate ongoing efficacy
   // Remove the old logic that filtered to only basic criteria

@@ -13,7 +13,6 @@ import {
   AccordionDetails,
   Button,
   Tooltip,
-  IconButton,
   Divider
 } from '@mui/material';
 import {
@@ -24,8 +23,7 @@ import {
   ExpandMore,
   Refresh,
   TrendingUp,
-  Description,
-  Timeline
+  Description
 } from '@mui/icons-material';
 import { CriteriaStatus, normalizeStatus } from '../constants';
 import { evaluateCoverage } from '../utils/coverageEvaluator';

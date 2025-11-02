@@ -1,5 +1,5 @@
 import * as coverageLogic from './coverageLogic';
-import { getCoverageForDrug, getApplicableCriteria, evaluatePACriteriaDetailed, getDoseInfo, getApprovalLikelihood } from './coverageLogic';
+import { getCoverageForDrug, getApplicableCriteria } from './coverageLogic';
 import { criteriaEvaluator } from './criteriaEvaluator';
 import { getCodings, codeMatches, getObservationNumericValue, findLatestObservationByCode } from './fhirHelpers';
 import { CriteriaStatus, normalizeStatus } from '../constants';
@@ -38,7 +38,7 @@ export async function evaluateCoverage(patientId, medication, dose) {
     const cached = await cache.get('evaluations', cacheKey);
     // Only use cached result if it's valid (no error) and not stale
     if (cached && cached.timestamp && (Date.now() - cached.timestamp < 5 * 60 * 1000) && !cached.error) {
-      console.log('Using cached evaluation result');
+      // console.log('Using cached evaluation result');
       return cached;
     }
     // If cached result indicates an error, ignore it and proceed to re-evaluate
@@ -206,8 +206,8 @@ async function performEvaluation(patientId, medication, dose) {
   const criteriaResults = [];
   let totalScore = 0;
   let totalWeight = 0;
-  let highPriorityRecommendations = [];
-  let mediumPriorityRecommendations = [];
+  const highPriorityRecommendations = [];
+  const mediumPriorityRecommendations = [];
   
   // Create fhirHelpers object for compatibility with criteriaEvaluator
   const fhirHelpersObj = {
@@ -416,7 +416,7 @@ async function fetchPatientData(patientId) {
   // Try to get from cache first
   const cached = await cache.get('patientData', { patientId });
   if (cached) {
-    console.log('Using cached patient data');
+    // console.log('Using cached patient data');
     return cached;
   }
   
