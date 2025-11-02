@@ -3,12 +3,12 @@ import React from "react";
 export default function PatientChart({ patient }) {
   if (!patient) {
     return (
-      <div className="text-gray-500">No patient selected.</div>
+      <div className="text-slate-400">No patient selected.</div>
     );
   }
   return (
-    <div className="bg-white p-4 rounded shadow">
-      <h2 className="text-xl font-bold mb-2">{patient.name}</h2>
+    <div className="bg-slate-800 p-4 rounded shadow text-slate-200">
+      <h2 className="text-xl font-bold mb-2 text-slate-100">{patient.name}</h2>
       {patient.age && <div className="mb-2"><strong>Age:</strong> {patient.age}</div>}
       <div className="mb-2"><strong>Insurance:</strong> {patient.insurance}</div>
       <div className="mb-2"><strong>Diagnoses:</strong> {patient.diagnosis.join(", ")}</div>
@@ -45,7 +45,7 @@ export default function PatientChart({ patient }) {
             ))}
           </ul>
         ) : (
-          <span className="ml-2 text-gray-500">No lab data available</span>
+          <span className="ml-2 text-slate-400">No lab data available</span>
         )}
       </div>
     </div>

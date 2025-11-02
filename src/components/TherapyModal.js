@@ -37,10 +37,10 @@ function TherapyModalContent({
       aria-labelledby="therapy-modal-title"
       aria-modal="true"
     >
-      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg relative overflow-y-auto max-h-[90vh]">
-        <h2 id="therapy-modal-title" className="text-xl font-bold mb-4">Initiate Therapy</h2>
+      <div className="bg-slate-800 p-6 rounded-xl shadow-xl w-full max-w-lg relative overflow-y-auto max-h-[90vh] text-slate-200">
+        <h2 id="therapy-modal-title" className="text-xl font-bold mb-4 text-slate-100">Initiate Therapy</h2>
         <button
-          className="absolute top-4 right-4 text-gray-500 hover:text-red-600 font-bold"
+          className="absolute top-4 right-4 text-slate-400 hover:text-red-500 font-bold"
           onClick={() => {
             setTherapyModalOpen(false);
             setDrugSearch("");
@@ -76,8 +76,8 @@ function TherapyModalContent({
                     setDrugSearch(drug.name);
                   }}
                 >
-                  <span className="font-bold">{drug.name}</span> <span className="text-gray-500">({drug.generic})</span>
-                  <span className="ml-2 px-2 py-1 bg-gray-200 rounded text-xs">{drug.class}</span>
+                  <span className="font-bold text-slate-200">{drug.name}</span> <span className="text-slate-400">({drug.generic})</span>
+                  <span className="ml-2 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">{drug.class}</span>
                 </li>
               ))}
             </ul>
@@ -86,12 +86,12 @@ function TherapyModalContent({
           {/* Indication selection for drugs with multiple uses */}
           {selectedDrugId && selectedDrug && (
             <div className="mb-4">
-              <label className="block font-semibold mb-2">Indication / Reason for Prescription:</label>
+              <label className="block font-semibold mb-2 text-slate-200">Indication / Reason for Prescription:</label>
               <div className="space-y-2">
                 {/* Check if this is a dual-indication drug */}
                 {(selectedDrug.name === "Ozempic" || selectedDrug.name === "Mounjaro") && (
                   <>
-                    <label className="flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
+                    <label className="flex items-center p-3 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-slate-700 transition">
                       <input
                         type="radio"
                         name="indication"
@@ -101,11 +101,11 @@ function TherapyModalContent({
                         className="mr-3 w-5 h-5"
                       />
                       <div className="flex-1">
-                        <div className="font-bold text-gray-900">Type 2 Diabetes Mellitus</div>
-                        <div className="text-sm text-gray-600">Primary indication - Glycemic control</div>
+                        <div className="font-bold text-slate-100">Type 2 Diabetes Mellitus</div>
+                        <div className="text-sm text-slate-400">Primary indication - Glycemic control</div>
                       </div>
                     </label>
-                    <label className="flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
+                    <label className="flex items-center p-3 border-2 border-slate-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-slate-700 transition">
                       <input
                         type="radio"
                         name="indication"
@@ -115,8 +115,8 @@ function TherapyModalContent({
                         className="mr-3 w-5 h-5"
                       />
                       <div className="flex-1">
-                        <div className="font-bold text-gray-900">Chronic Weight Management</div>
-                        <div className="text-sm text-gray-600">Off-label use - May not be covered</div>
+                        <div className="font-bold text-slate-100">Chronic Weight Management</div>
+                        <div className="text-sm text-slate-400">Off-label use - May not be covered</div>
                       </div>
                     </label>
                   </>
@@ -124,7 +124,7 @@ function TherapyModalContent({
                 
                 {/* Weight-loss only drugs */}
                 {(selectedDrug.name === "Wegovy" || selectedDrug.name === "Zepbound" || selectedDrug.name === "Saxenda") && (
-                  <div className="p-3 border-2 border-blue-500 rounded-lg bg-blue-50">
+                  <div className="p-3 border-2 border-blue-500 rounded-lg bg-blue-900/30">
                     <div className="flex items-start">
                       <input
                         type="radio"
@@ -135,8 +135,8 @@ function TherapyModalContent({
                         className="mr-3 mt-1 w-5 h-5"
                       />
                       <div className="flex-1">
-                        <div className="font-bold text-gray-900">Chronic Weight Management</div>
-                        <div className="text-sm text-gray-600">FDA-approved indication for obesity</div>
+                        <div className="font-bold text-slate-100">Chronic Weight Management</div>
+                        <div className="text-sm text-slate-400">FDA-approved indication for obesity</div>
                       </div>
                     </div>
                   </div>
