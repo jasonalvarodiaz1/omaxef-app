@@ -150,7 +150,7 @@ function TherapyModalContent({
             <div className="mb-4">
               <label className="block font-semibold mb-2">Select Dose:</label>
               <select
-                className="border p-2 rounded w-full"
+                className="border border-slate-600 p-2 rounded w-full bg-slate-700 text-slate-100"
                 value={selectedDose}
                 onChange={e => setSelectedDose(e.target.value)}
               >
