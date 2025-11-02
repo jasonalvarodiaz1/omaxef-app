@@ -1,6 +1,9 @@
 // App.js - Unified Epic Integration + EHR UI with Patient Selection
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { darkTheme } from './theme';
 import { allDrugs } from './data/allDrugs';
 import { drugCoverage } from './data/drugCoverage';
 import { patients as mockPatients } from './data/patients';
@@ -533,15 +536,18 @@ const Logo = () => (
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/callback" element={<EpicCallback />} />
-          <Route path="/" element={<AppContent />} />
-        </Routes>
-        <Logo />
-      </div>
-    </Router>
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path="/callback" element={<EpicCallback />} />
+            <Route path="/" element={<AppContent />} />
+          </Routes>
+          <Logo />
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 
