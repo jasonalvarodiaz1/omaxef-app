@@ -56,7 +56,7 @@ function TherapyModalContent({
           <label className="block font-semibold mb-2">Search for any drug:</label>
           <input
             type="text"
-            className="border p-2 rounded w-full mb-4"
+            className="border border-slate-600 p-2 rounded w-full mb-4 bg-slate-700 text-slate-100 placeholder-slate-400"
             placeholder="Type drug name or generic..."
             value={drugSearch}
             onChange={e => setDrugSearch(e.target.value)}
@@ -67,7 +67,7 @@ function TherapyModalContent({
               {filteredDrugs.map(drug => (
                 <li
                   key={drug.id}
-                  className={`p-2 mb-2 rounded cursor-pointer hover:bg-blue-100 ${selectedDrugId === drug.id ? "bg-blue-200" : ""}`}
+                  className={`p-2 mb-2 rounded cursor-pointer hover:bg-slate-700 ${selectedDrugId === drug.id ? "bg-slate-600" : ""}`}
                   onClick={() => {
                     setSelectedDrugId(drug.id);
                     setTherapySubmitted(false);
@@ -76,7 +76,7 @@ function TherapyModalContent({
                     setDrugSearch(drug.name);
                   }}
                 >
-                  <span className="font-bold text-slate-200">{drug.name}</span> <span className="text-slate-400">({drug.generic})</span>
+                  <span className="font-bold text-slate-100">{drug.name}</span> <span className="text-slate-300">({drug.generic})</span>
                   <span className="ml-2 px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">{drug.class}</span>
                 </li>
               ))}
