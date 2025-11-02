@@ -667,7 +667,7 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
       return {
         status: CriteriaStatus.NOT_MET,
         criterionType: 'priorTherapies',
-        reason: `Only ${priorAttempts.length} trials documented (need ${minTrials})`,
+        reason: `${priorAttempts.length} trials documented (need ${minTrials})`,
         displayValue: `${priorAttempts.length}/${minTrials}`
       };
     }
@@ -826,7 +826,7 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
           criterionType: 'stepTherapy',
           reason: priorMeds.length >= minTrials
             ? `${priorMeds.length} prior medication trials documented`
-            : `Only ${priorMeds.length} trials (need ${minTrials})`,
+            : `${priorMeds.length} trials (need ${minTrials})`,
           displayValue: `${priorMeds.length} trials`
         };
       }
