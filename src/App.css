@@ -1,4 +1,8 @@
 /* App.css - Dark Mode Theme */
+html {
+  font-size: 85%; /* Reduce all rem-based sizes by 15% */
+}
+
 * {
   margin: 0;
   padding: 0;
