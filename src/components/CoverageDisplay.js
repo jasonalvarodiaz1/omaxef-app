@@ -530,6 +530,51 @@ export function CoverageDisplay({
                           {result.reason}
                         </Typography>
                         
+                        {/* Documentation Checklist - Show for documentation criteria when not all present */}
+                        {result.criterionType === 'documentation' && result.status !== CriteriaStatus.MET && selectedPatient?.clinicalNotes?.documentation && (
+                          <Box mb={2} sx={{ 
+                            border: '1px solid #334155', 
+                            borderRadius: '8px', 
+                            padding: '12px',
+                            background: '#0f172a'
+                          }}>
+                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mb: 1.5 }}>
+                              Document Checklist:
+                            </Typography>
+                            {[
+                              { key: 'baselineVitals', label: 'Baseline Vitals (BP, HR, weight)' },
+                              { key: 'bmiChart', label: 'BMI Documentation' },
+                              { key: 'comorbidities', label: 'Comorbidity Documentation' },
+                              { key: 'lifestyleProgram', label: 'Lifestyle/Diet Program Enrollment' },
+                              { key: 'priorMedications', label: 'Prior Medication Trials' },
+                              { key: 'treatmentPlan', label: 'Treatment Plan Documentation' }
+                            ].map(({ key, label }) => {
+                              const isPresent = selectedPatient.clinicalNotes.documentation[key]?.present;
+                              return (
+                                <Box 
+                                  key={key} 
+                                  sx={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: 1, 
+                                    mb: 0.5,
+                                    color: isPresent ? '#10b981' : '#94a3b8'
+                                  }}
+                                >
+                                  {isPresent ? (
+                                    <CheckCircle sx={{ fontSize: '1rem', color: '#10b981' }} />
+                                  ) : (
+                                    <Cancel sx={{ fontSize: '1rem', color: '#64748b' }} />
+                                  )}
+                                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                                    {label}
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        )}
+                        
                         {/* Evidence & Warnings */}
                         {result.evidence && result.evidence.length > 0 && (
                           <Box mb={2}>
