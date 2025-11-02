@@ -555,27 +555,8 @@ export function CoverageDisplay({
                           </Box>
                         )}
                         
-                        {/* Details */}
-                        {result.details && Object.keys(result.details).length > 0 && (
-                          <Box mb={2}>
-                            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                              Details:
-                            </Typography>
-                            <Box sx={{ 
-                              bgcolor: 'grey.50', 
-                              p: 1.5, 
-                              borderRadius: 1,
-                              fontFamily: 'monospace',
-                              fontSize: '0.875rem'
-                            }}>
-                              {Object.entries(result.details).map(([key, value]) => (
-                                <div key={key}>
-                                  <strong>{key}:</strong> {JSON.stringify(value)}
-                                </div>
-                              ))}
-                            </Box>
-                          </Box>
-                        )}
+                        {/* Details - Hidden for PHI protection */}
+                        {/* Internal diagnostic details are kept in result.details but not displayed to users */}
                         
                         {/* Recommendation */}
                         {result.recommendation && (
