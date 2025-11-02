@@ -263,7 +263,7 @@ function AppContent() {
                   onChange={e => setPatientSearch(e.target.value)}
                 />
                 <select
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '6px', background: 'white' }}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #475569', borderRadius: '6px', background: '#0f172a' }}
                   value={selectedPatientId}
                   onChange={e => {
                     setSelectedPatientId(e.target.value);
@@ -298,71 +298,71 @@ function AppContent() {
                         <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.gender || 'N/A'}</span>
                       </div>
                       <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Insurance:</span>
-                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.insurance}</span>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>Insurance:</span>
+                        <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>{selectedPatient.insurance}</span>
                       </div>
                     </div>
                   </section>
 
-                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Clinical Metrics</h3>
+                  <section className="detail-section" style={{ background: '#0f172a', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#94a3b8', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.5rem' }}>Clinical Metrics</h3>
                     <div className="detail-grid" style={{ display: 'grid', gap: '0.75rem' }}>
-                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>BMI:</span>
+                      <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #1e293b' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>BMI:</span>
                         <span className="value highlight" style={{ color: '#0d6efd', fontWeight: '600', fontSize: '1rem' }}>
                           {selectedPatient.vitals?.bmi?.toFixed?.(1) || selectedPatient.vitals?.bmi || 'N/A'}
                         </span>
                       </div>
                       <div className="detail-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
-                        <span className="label" style={{ fontWeight: '500', color: '#6c757d', fontSize: '0.875rem' }}>Weight:</span>
-                        <span className="value" style={{ color: '#212529', fontWeight: '500', fontSize: '0.875rem' }}>
+                        <span className="label" style={{ fontWeight: '500', color: '#94a3b8', fontSize: '0.875rem' }}>Weight:</span>
+                        <span className="value" style={{ color: '#e2e8f0', fontWeight: '500', fontSize: '0.875rem' }}>
                           {selectedPatient.vitals?.weight?.value} {selectedPatient.vitals?.weight?.units}
                         </span>
                       </div>
                     </div>
                   </section>
 
-                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Active Conditions ({selectedPatient.diagnosis?.length || 0})</h3>
+                  <section className="detail-section" style={{ background: '#0f172a', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#94a3b8', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.5rem' }}>Active Conditions ({selectedPatient.diagnosis?.length || 0})</h3>
                     <div className="conditions-list">
                       {selectedPatient.diagnosis && selectedPatient.diagnosis.length > 0 ? (
                         <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
                           {selectedPatient.diagnosis.slice(0, 5).map((diagnosis, idx) => (
-                            <li key={idx} className="condition-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #f1f3f5', fontSize: '0.875rem' }}>
-                              <span className="condition-name" style={{ flex: '1', color: '#212529', fontWeight: '500' }}>{diagnosis}</span>
+                            <li key={idx} className="condition-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #1e293b', fontSize: '0.875rem' }}>
+                              <span className="condition-name" style={{ flex: '1', color: '#e2e8f0', fontWeight: '500' }}>{diagnosis}</span>
                             </li>
                           ))}
                           {selectedPatient.diagnosis.length > 5 && (
-                            <li className="more-items" style={{ color: '#6c757d', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
+                            <li className="more-items" style={{ color: '#94a3b8', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
                               +{selectedPatient.diagnosis.length - 5} more
                             </li>
                           )}
                         </ul>
                       ) : (
-                        <p className="empty-state" style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active conditions recorded</p>
+                        <p className="empty-state" style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active conditions recorded</p>
                       )}
                     </div>
                   </section>
 
-                  <section className="detail-section" style={{ background: 'white', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#495057', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.5rem' }}>Active Medications ({selectedPatient.medications?.length || 0})</h3>
+                  <section className="detail-section" style={{ background: '#0f172a', borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#94a3b8', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.5rem' }}>Active Medications ({selectedPatient.medications?.length || 0})</h3>
                     <div className="medications-list">
                       {selectedPatient.medications && selectedPatient.medications.length > 0 ? (
                         <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
                           {selectedPatient.medications.slice(0, 5).map((med, idx) => (
-                            <li key={idx} className="medication-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #f1f3f5', fontSize: '0.875rem' }}>
-                              <span className="med-name" style={{ flex: '1', color: '#212529', fontWeight: '500' }}>{med.name}</span>
-                              {med.dose && <span className="med-dosage" style={{ color: '#6c757d', fontSize: '0.75rem', fontStyle: 'italic' }}>{med.dose}</span>}
+                            <li key={idx} className="medication-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', borderBottom: '1px solid #1e293b', fontSize: '0.875rem' }}>
+                              <span className="med-name" style={{ flex: '1', color: '#e2e8f0', fontWeight: '500' }}>{med.name}</span>
+                              {med.dose && <span className="med-dosage" style={{ color: '#94a3b8', fontSize: '0.75rem', fontStyle: 'italic' }}>{med.dose}</span>}
                             </li>
                           ))}
                           {selectedPatient.medications.length > 5 && (
-                            <li className="more-items" style={{ color: '#6c757d', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
+                            <li className="more-items" style={{ color: '#94a3b8', fontSize: '0.8rem', padding: '0.5rem', textAlign: 'center', fontStyle: 'italic' }}>
                               +{selectedPatient.medications.length - 5} more
                             </li>
                           )}
                         </ul>
                       ) : (
-                        <p className="empty-state" style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active medications</p>
+                        <p className="empty-state" style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No active medications</p>
                       )}
                     </div>
                   </section>
@@ -378,14 +378,14 @@ function AppContent() {
           )}
           
           {/* Main content */}
-          <main className="flex-1 flex flex-col overflow-y-auto" style={{ background: '#f8f9fa' }}>
+          <main className="flex-1 flex flex-col overflow-y-auto" style={{ background: '#1e293b' }}>
             <header style={{ background: '#ffffff', borderBottom: '1px solid #dee2e6', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
-              <h1 style={{ margin: '0', fontSize: '1.75rem', fontWeight: '600', color: '#212529' }}>Electronic Health Record</h1>
+              <h1 style={{ margin: '0', fontSize: '1.75rem', fontWeight: '600', color: '#e2e8f0' }}>Electronic Health Record</h1>
             </header>
             
             {selectedPatient && (
               <>
-                <nav style={{ background: 'white', borderBottom: '1px solid #dee2e6', display: 'flex', padding: '0 2rem' }}>
+                <nav style={{ background: '#0f172a', borderBottom: '1px solid #dee2e6', display: 'flex', padding: '0 2rem' }}>
                   {tabNames.map(tab => (
                     <button
                       key={tab}
@@ -424,8 +424,8 @@ function AppContent() {
                   {activeTab === 'Summary' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                       <PatientChart patient={selectedPatient} />
-                      <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                        <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Allergies</h2>
+                      <div style={{ background: '#0f172a', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                        <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#e2e8f0', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.75rem' }}>Allergies</h2>
                         {selectedPatient.allergies && selectedPatient.allergies.length > 0 ? (
                           <ul style={{ listStyle: 'none', padding: '0', margin: '0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {selectedPatient.allergies.map((allergy, idx) => (
@@ -435,29 +435,29 @@ function AppContent() {
                             ))}
                           </ul>
                         ) : (
-                          <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No known allergies</div>
+                          <div style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No known allergies</div>
                         )}
                       </div>
                     </div>
                   )}
                   
                   {activeTab === 'Medications' && (
-                    <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Medications</h2>
+                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#e2e8f0', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.75rem' }}>Medications</h2>
                       {selectedPatient.medications && selectedPatient.medications.length > 0 ? (
                         <ul style={{ listStyle: 'none', padding: '0', margin: '0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {selectedPatient.medications.map((med, idx) => (
-                            <li key={idx} style={{ padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                            <li key={idx} style={{ padding: '1rem', background: '#1e293b', borderRadius: '6px', border: '1px solid #334155' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
-                                <span style={{ fontWeight: '600', color: '#212529', fontSize: '0.95rem' }}>{med.name}</span>
-                                <span style={{ color: '#6c757d', fontSize: '0.875rem', fontWeight: '500' }}>{med.dose}</span>
+                                <span style={{ fontWeight: '600', color: '#e2e8f0', fontSize: '0.95rem' }}>{med.name}</span>
+                                <span style={{ color: '#94a3b8', fontSize: '0.875rem', fontWeight: '500' }}>{med.dose}</span>
                               </div>
-                              <span style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic' }}>{med.sig}</span>
+                              <span style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic' }}>{med.sig}</span>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No medications listed.</div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No medications listed.</div>
                       )}
                       <button
                         style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '500', cursor: 'pointer', width: '100%', transition: 'background 0.2s' }}
@@ -471,22 +471,22 @@ function AppContent() {
                   )}
                   
                   {activeTab === 'Results' && (
-                    <div style={{ background: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#212529', fontWeight: '600', borderBottom: '2px solid #e9ecef', paddingBottom: '0.75rem' }}>Lab Results</h2>
+                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                      <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem', color: '#e2e8f0', fontWeight: '600', borderBottom: '2px solid #334155', paddingBottom: '0.75rem' }}>Lab Results</h2>
                       {selectedPatient.labs ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {Object.entries(selectedPatient.labs).map(([test, obj]) => (
-                            <div key={test} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
-                              <span style={{ fontWeight: '600', color: '#495057', fontSize: '0.95rem', textTransform: 'uppercase' }}>{test}</span>
+                            <div key={test} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#1e293b', borderRadius: '6px', border: '1px solid #334155' }}>
+                              <span style={{ fontWeight: '600', color: '#94a3b8', fontSize: '0.95rem', textTransform: 'uppercase' }}>{test}</span>
                               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
-                                <span style={{ fontWeight: '600', color: '#212529', fontSize: '1.1rem' }}>{obj.value}</span>
-                                <span style={{ color: '#6c757d', fontSize: '0.875rem' }}>{obj.units}</span>
+                                <span style={{ fontWeight: '600', color: '#e2e8f0', fontSize: '1.1rem' }}>{obj.value}</span>
+                                <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{obj.units}</span>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ color: '#6c757d', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No lab results available.</div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.875rem', fontStyle: 'italic', textAlign: 'center', padding: '1rem 0' }}>No lab results available.</div>
                       )}
                     </div>
                   )}
