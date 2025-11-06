@@ -499,6 +499,20 @@ export const criteriaEvaluator = {
 export function evaluatePatientCriteria() {
   throw new Error('evaluatePatientCriteria is not implemented. Use criteriaEvaluator instead.');
 }
+
+// Wrapper function for enhanced coverage logic compatibility
+export function evaluateCriteria(criterionName, patientData, config) {
+  const { medication, dose, ...criterionConfig } = config;
+  
+  // Build a criterion object from the config
+  const criterion = {
+    name: criterionName,
+    ...criterionConfig
+  };
+  
+  // Call the main evaluateCriterion function
+  return evaluateCriterion(patientData, criterion, null, dose, medication);
+}
       
 // Legacy wrapper function for backward compatibility
 export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
