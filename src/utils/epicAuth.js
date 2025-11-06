@@ -5,7 +5,7 @@ const EPIC_CONFIG = {
   fhirBaseUrl: process.env.REACT_APP_EPIC_FHIR_BASE || 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
   authUrl: process.env.REACT_APP_EPIC_AUTH_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
   tokenUrl: process.env.REACT_APP_EPIC_TOKEN_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
-  redirectUri: process.env.REACT_APP_REDIRECT_URI || 'http://localhost:3000/callback',
+  redirectUri: process.env.REACT_APP_REDIRECT_URI || 'http://localhost:3001/callback',
   scope: process.env.REACT_APP_EPIC_SCOPE || 'launch launch/patient patient/Patient.read patient/Condition.read patient/Observation.read patient/MedicationRequest.read patient/Coverage.read openid fhirUser'
 };
 
