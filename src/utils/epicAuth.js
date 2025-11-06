@@ -1,16 +1,16 @@
 // Epic SMART on FHIR Authentication Utilities
 
 const EPIC_CONFIG = {
-  clientId: process.env.REACT_APP_EPIC_CLIENT_ID,
-  fhirBaseUrl: process.env.REACT_APP_EPIC_FHIR_BASE,
-  authUrl: process.env.REACT_APP_EPIC_AUTH_URL,
-  tokenUrl: process.env.REACT_APP_EPIC_TOKEN_URL,
-  redirectUri: process.env.REACT_APP_REDIRECT_URI,
-  scope: process.env.REACT_APP_EPIC_SCOPE || 'patient/Patient.read patient/Condition.read patient/MedicationRequest.read patient/Observation.read patient/Coverage.read openid fhirUser'
+  clientId: process.env.REACT_APP_EPIC_CLIENT_ID || 'e12f6559-dcee-4201-881e-90fc41978ef3',
+  fhirBaseUrl: process.env.REACT_APP_EPIC_FHIR_BASE || 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
+  authUrl: process.env.REACT_APP_EPIC_AUTH_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
+  tokenUrl: process.env.REACT_APP_EPIC_TOKEN_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
+  redirectUri: process.env.REACT_APP_REDIRECT_URI || 'http://localhost:3000/callback',
+  scope: process.env.REACT_APP_EPIC_SCOPE || 'launch launch/patient patient/Patient.read patient/Condition.read patient/Observation.read patient/MedicationRequest.read patient/Coverage.read openid fhirUser'
 };
 
 // Updated scopes to include additional permissions
-const EPIC_SCOPES = 'launch launch/patient patient/Patient.read patient/Condition.read patient/Observation.read patient/MedicationRequest.read patient/Coverage.read launch/encounter openid fhirUser';
+const EPIC_SCOPES = 'launch launch/patient patient/Patient.read patient/Condition.read patient/Observation.read patient/MedicationRequest.read patient/Coverage.read openid fhirUser';
 
 // Step 1: Initiate SMART launch - STANDALONE PROVIDER MODE
 export const launchEpicAuth = () => {
