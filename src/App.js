@@ -73,6 +73,7 @@ function AppContent() {
   const [selectedDrugId, setSelectedDrugId] = useState(null);
   const [therapySubmitted, setTherapySubmitted] = useState(false);
   const [selectedDose, setSelectedDose] = useState('');
+  const [useEnhancedMode, setUseEnhancedMode] = useState(false);
   
   // PA form state
   const [paFormOpen, setPaFormOpen] = useState(false);
@@ -379,8 +380,31 @@ function AppContent() {
           
           {/* Main content */}
           <main className="flex-1 flex flex-col overflow-y-auto" style={{ background: '#1e293b' }}>
-            <header style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}>
+            <header style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '1.5rem 2rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h1 style={{ margin: '0', fontSize: '1.75rem', fontWeight: '600', color: '#e2e8f0' }}>Electronic Health Record</h1>
+              
+              {/* RxNorm Enhanced Mode Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#94a3b8', fontSize: '0.875rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={useEnhancedMode}
+                    onChange={(e) => setUseEnhancedMode(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span>Use RxNorm Enhanced Mode</span>
+                </label>
+                {useEnhancedMode && (
+                  <span style={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>BETA</span>
+                )}
+              </div>
             </header>
             
             {selectedPatient && (
@@ -514,6 +538,7 @@ function AppContent() {
               setPaFormSubmitted={setPaFormSubmitted}
               paFormData={paFormData}
               setPaFormData={setPaFormData}
+              useEnhancedMode={useEnhancedMode}
             />
           </main>
         </div>

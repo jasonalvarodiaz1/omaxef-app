@@ -2,13 +2,20 @@
 import { getEpicToken } from './epicAuth';
 
 export const fetchCompletePatientData = async (patientId) => {
-  const accessToken = getEpicToken();
+  // Try to get access token, or fall back to launch token for embedded mode
+  let accessToken = getEpicToken();
+  const launchToken = sessionStorage.getItem('epic_launch_token');
+  
+  if (!accessToken && launchToken) {
+    console.log('⚠️ No access token found, trying launch token for embedded mode');
+    accessToken = launchToken;
+  }
 
   if (!accessToken) {
     throw new Error('Missing Epic access token');
   }
 
-  const fhirBaseUrl = process.env.REACT_APP_EPIC_FHIR_BASE;
+  const fhirBaseUrl = sessionStorage.getItem('epic_fhir_base') || process.env.REACT_APP_EPIC_FHIR_BASE;
 
   try {
     // Fetch demographics

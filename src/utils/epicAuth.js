@@ -5,7 +5,7 @@ const EPIC_CONFIG = {
   fhirBaseUrl: process.env.REACT_APP_EPIC_FHIR_BASE || 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
   authUrl: process.env.REACT_APP_EPIC_AUTH_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
   tokenUrl: process.env.REACT_APP_EPIC_TOKEN_URL || 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
-  redirectUri: process.env.REACT_APP_REDIRECT_URI || 'http://localhost:3001/callback',
+  redirectUri: process.env.REACT_APP_REDIRECT_URI || 'https://localhost:3001/callback',
   scope: process.env.REACT_APP_EPIC_SCOPE || 'launch launch/patient patient/Patient.read patient/Condition.read patient/Observation.read patient/MedicationRequest.read patient/Coverage.read openid fhirUser'
 };
 
@@ -39,7 +39,7 @@ export const isEpicLaunch = () => {
 };
 
 // Initiate auth with launch context
-export const initiateEpicAuth = () => {
+export const initiateEpicAuth = async (isEmbedded = false) => {
   const urlParams = new URLSearchParams(window.location.search);
   const launchToken = urlParams.get('launch');
   const issuer = urlParams.get('iss');
@@ -52,7 +52,7 @@ export const initiateEpicAuth = () => {
   sessionStorage.setItem('epic_iss', issuer);
 
   const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const codeChallenge = await generateCodeChallenge(codeVerifier); // await the Promise
   sessionStorage.setItem('code_verifier', codeVerifier);
 
   const state = generateRandomState();
@@ -69,7 +69,33 @@ export const initiateEpicAuth = () => {
   authUrl.searchParams.append('code_challenge', codeChallenge);
   authUrl.searchParams.append('code_challenge_method', 'S256');
 
-  window.location.href = authUrl.toString();
+  const authUrlString = authUrl.toString();
+  console.log('🔐 Initiating Epic OAuth:', authUrlString);
+
+  // For embedded mode in a sandboxed iframe, we can't redirect parent
+  // Instead, open in a popup or new window
+  if (isEmbedded) {
+    console.log('📱 Embedded mode: Opening OAuth in new window');
+    const width = 600;
+    const height = 700;
+    const left = (screen.width / 2) - (width / 2);
+    const top = (screen.height / 2) - (height / 2);
+    
+    const popup = window.open(
+      authUrlString,
+      'EpicOAuth',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
+    );
+    
+    if (!popup) {
+      console.warn('⚠️ Popup blocked - trying direct redirect');
+      window.location.href = authUrlString;
+    } else {
+      console.log('✅ OAuth popup opened');
+    }
+  } else {
+    window.location.href = authUrlString;
+  }
 };
 
 // Step 2: Handle OAuth callback

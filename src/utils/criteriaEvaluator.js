@@ -506,6 +506,7 @@ export function evaluateCriteria(criterionName, patientData, config) {
   
   // Build a criterion object from the config
   const criterion = {
+    type: criterionName,  // Use 'type' instead of 'name' to match switch statement
     name: criterionName,
     ...criterionConfig
   };
@@ -518,15 +519,17 @@ export function evaluateCriteria(criterionName, patientData, config) {
 export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
   // Map old criterion types to new evaluator methods
   switch (criterion.type) {
-    case 'age':
+    case 'age': {
+      const minAge = criterion.minAge || criterion.min || 18;
       return {
-        status: patient.age >= criterion.minAge ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        status: patient.age >= minAge ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
         criterionType: 'age',
         value: patient.age,
-        reason: patient.age >= criterion.minAge 
-          ? `Patient age ${patient.age} meets minimum ${criterion.minAge}`
-          : `Patient age ${patient.age} below minimum ${criterion.minAge}`
+        reason: patient.age >= minAge 
+          ? `Patient age ${patient.age} meets minimum ${minAge}`
+          : `Patient age ${patient.age} below minimum ${minAge}`
       };
+    }
       
     case 'bmi': {
       const bmiValue = patient.vitals?.bmi || patient.bmi;
@@ -587,9 +590,23 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
       // Get dose info from drug schedule
       const normalizedDose = String(dose);
       let doseInfo = null;
-      if (drug.doseSchedule) {
+      
+      // Check if drug object exists and has doseSchedule
+      if (drug && drug.doseSchedule) {
         doseInfo = drug.doseSchedule.find(d => String(d.value) === normalizedDose);
       }
+      
+      // In enhanced mode, we might have validDoses from RxNorm instead
+      if (!doseInfo && criterion.validDoses && criterion.currentDoseValid) {
+        // If RxNorm validation passed, consider it met
+        return {
+          status: criterion.currentDoseValid.valid ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+          criterionType: 'doseProgression',
+          reason: criterion.currentDoseValid.reason || 'Dose validated via RxNorm',
+          details: `Valid doses: ${criterion.validDoses.join(', ')}`
+        };
+      }
+      
       if (!doseInfo) {
         return {
           status: CriteriaStatus.NOT_MET,
@@ -998,6 +1015,67 @@ export function evaluateCriterion(patient, criterion, drug, dose, drugName) {
             ? `Did not achieve initial target of ${minPercentage}%`
             : `Weight regain - now at ${currentWeightLoss}% (from ${initialWeightLoss}%)`,
         displayValue: `${currentWeightLoss}%`
+      };
+    }
+
+    case 'comorbidity': {
+      // Check if patient has any of the qualifying comorbidities
+      const qualifyingConditions = criterion.qualifyingConditions || [];
+      const patientDiagnoses = (patient.diagnosis || []).map(d => d.toLowerCase());
+      const patientComorbidities = (patient.comorbidities || []).map(c => c.toLowerCase());
+      const allPatientConditions = [...patientDiagnoses, ...patientComorbidities];
+      
+      const hasQualifyingCondition = qualifyingConditions.some(condition =>
+        allPatientConditions.some(patientCondition =>
+          patientCondition.includes(condition.toLowerCase())
+        )
+      );
+      
+      if (!criterion.required) {
+        // If not required, just informational
+        return {
+          status: CriteriaStatus.MET,
+          criterionType: 'comorbidity',
+          reason: hasQualifyingCondition 
+            ? `Has qualifying comorbidity`
+            : 'No qualifying comorbidity required',
+          details: hasQualifyingCondition 
+            ? allPatientConditions.filter(pc => 
+                qualifyingConditions.some(qc => pc.includes(qc.toLowerCase()))
+              ).join(', ')
+            : 'Not required'
+        };
+      }
+      
+      return {
+        status: hasQualifyingCondition ? CriteriaStatus.MET : CriteriaStatus.NOT_MET,
+        criterionType: 'comorbidity',
+        reason: hasQualifyingCondition
+          ? 'Has qualifying weight-related comorbidity'
+          : 'No qualifying weight-related comorbidity found',
+        details: hasQualifyingCondition
+          ? allPatientConditions.filter(pc => 
+              qualifyingConditions.some(qc => pc.includes(qc.toLowerCase()))
+            ).join(', ')
+          : `Requires one of: ${qualifyingConditions.join(', ')}`
+      };
+    }
+
+    case 'maintenance': {
+      // Check if patient is on maintenance dose
+      const maxDose = criterion.maxDose;
+      const currentDose = criterion.currentDose || dose;
+      
+      // This is typically not a strict requirement but informational
+      const isOnMaintenanceDose = currentDose === maxDose;
+      
+      return {
+        status: CriteriaStatus.MET, // Not a blocker
+        criterionType: 'maintenance',
+        reason: isOnMaintenanceDose
+          ? `On maintenance dose (${maxDose})`
+          : `Titrating to maintenance dose (current: ${currentDose}, target: ${maxDose})`,
+        details: `Maximum approved dose: ${maxDose}`
       };
     }
       

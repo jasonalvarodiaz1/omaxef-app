@@ -131,12 +131,8 @@ export async function getEnhancedCriteriaForMedication(medication, dose) {
           maxDose: fdaInfo.maxDose,
           source: 'FDA labeling'
         },
-        weightLoss: { 
-          required: true, 
-          threshold: getWeightLossThreshold(rxnormData),
-          timeframe: 12, // weeks
-          source: 'Clinical guidelines'
-        },
+        // Note: weightLoss criterion omitted for initial authorization
+        // It would only be relevant for continuation/reauthorization
         documentation: { 
           required: true,
           requiredDocuments: getRequiredDocumentation(rxnormData),
@@ -251,10 +247,16 @@ function getRequiredDocumentation(rxnormData) {
 async function getValidDosesFromRxNorm(genericName) {
   try {
     const formulations = await getAvailableFormulations(genericName);
+    
+    if (!formulations || !Array.isArray(formulations)) {
+      console.warn('No formulations returned for', genericName);
+      return [];
+    }
+    
     const doses = new Set();
     
     for (const formulation of formulations) {
-      if (formulation.strength) {
+      if (formulation && formulation.strength) {
         doses.add(formulation.strength);
       }
     }
@@ -274,23 +276,32 @@ async function getValidDosesFromRxNorm(genericName) {
  * Validate if current dose is appropriate according to RxNorm
  */
 async function validateDoseAgainstRxNorm(dose, rxnormData) {
-  const validDoses = await getValidDosesFromRxNorm(rxnormData.genericName);
-  
-  if (validDoses.length === 0) {
-    return { valid: true, reason: 'Unable to verify against RxNorm' };
+  try {
+    if (!rxnormData || !rxnormData.genericName) {
+      return { valid: true, reason: 'Unable to verify - missing drug data' };
+    }
+    
+    const validDoses = await getValidDosesFromRxNorm(rxnormData.genericName);
+    
+    if (validDoses.length === 0) {
+      return { valid: true, reason: 'Unable to verify against RxNorm' };
+    }
+    
+    const normalizedCurrentDose = dose.toLowerCase().replace(/\s+/g, '');
+    const isValid = validDoses.some(validDose => {
+      const normalizedValid = validDose.toLowerCase().replace(/\s+/g, '');
+      return normalizedValid === normalizedCurrentDose;
+    });
+    
+    return {
+      valid: isValid,
+      reason: isValid ? 'Dose verified in RxNorm' : 'Dose not found in RxNorm database',
+      validDoses
+    };
+  } catch (error) {
+    console.error('Error validating dose:', error);
+    return { valid: true, reason: 'Validation error - assuming valid' };
   }
-  
-  const normalizedCurrentDose = dose.toLowerCase().replace(/\s+/g, '');
-  const isValid = validDoses.some(validDose => {
-    const normalizedValid = validDose.toLowerCase().replace(/\s+/g, '');
-    return normalizedValid === normalizedCurrentDose;
-  });
-  
-  return {
-    valid: isValid,
-    reason: isValid ? 'Dose verified in RxNorm' : 'Dose not found in RxNorm database',
-    validDoses
-  };
 }
 
 /**
@@ -353,13 +364,14 @@ function getFallbackCriteria(medication, dose) {
  * Calculate approval likelihood with RxNorm validation
  */
 export async function calculateEnhancedApprovalLikelihood(evaluationResults, medication, dose) {
-  // Get RxNorm validation
-  const rxnormData = await normalizeDrugAndDose(medication, dose);
-  
-  // Base calculation from evaluation results
-  let baseLikelihood = 0;
-  const criteria = Object.values(evaluationResults);
-  const totalCriteria = criteria.length;
+  try {
+    // Get RxNorm validation
+    const rxnormData = await normalizeDrugAndDose(medication, dose);
+    
+    // Base calculation from evaluation results
+    let baseLikelihood = 0;
+    const criteria = Object.values(evaluationResults || {});
+    const totalCriteria = criteria.length;
   
   if (totalCriteria === 0) {
     return { likelihood: 0, factors: [] };
@@ -442,7 +454,7 @@ export async function calculateEnhancedApprovalLikelihood(evaluationResults, med
   return {
     likelihood: finalLikelihood,
     factors,
-    rxnormValidated: rxnormData.normalized,
+    rxnormValidated: rxnormData?.normalized || false,
     evaluationBreakdown: {
       metCriteria,
       partialCriteria,
@@ -450,6 +462,29 @@ export async function calculateEnhancedApprovalLikelihood(evaluationResults, med
       totalCriteria
     }
   };
+  } catch (error) {
+    console.error('Error calculating enhanced approval likelihood:', error);
+    // Return a safe default
+    const criteria = Object.values(evaluationResults || {});
+    const metCriteria = criteria.filter(c => normalizeStatus(c.status) === CriteriaStatus.MET).length;
+    const fallbackLikelihood = criteria.length > 0 ? Math.round((metCriteria / criteria.length) * 100) : 0;
+    
+    return {
+      likelihood: fallbackLikelihood,
+      factors: [{
+        factor: 'Calculation Error',
+        impact: 'N/A',
+        details: 'Using simplified calculation'
+      }],
+      rxnormValidated: false,
+      evaluationBreakdown: {
+        metCriteria,
+        partialCriteria: 0,
+        requiredNotMet: 0,
+        totalCriteria: criteria.length
+      }
+    };
+  }
 }
 
 /**

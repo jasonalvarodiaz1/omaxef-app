@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { CoverageDisplay } from "./CoverageDisplay";
+import EnhancedCoverageDisplay from "./EnhancedCoverageDisplay";
 import PAForm from "./PAForm";
 import { getCoverageForDrug } from "../utils/coverageLogic";
 
@@ -28,7 +29,8 @@ function TherapyModalContent({
   filteredDrugs,
   selectedDrug,
   coverage,
-  coverageError
+  coverageError,
+  useEnhancedMode
 }) {
   return (
     <div 
@@ -179,14 +181,23 @@ function TherapyModalContent({
                 </div>
               )}
               
-              <CoverageDisplay
-                insurance={patient.insurance}
-                drugName={selectedDrug?.name}
-                selectedDose={selectedDose}
-                selectedPatient={patient}
-                drugCoverage={drugCoverage}
-                indication={selectedIndication}
-              />
+              {/* Conditionally render based on enhanced mode */}
+              {useEnhancedMode ? (
+                <EnhancedCoverageDisplay
+                  patientData={patient}
+                  medication={selectedDrug?.name}
+                  dose={selectedDose}
+                />
+              ) : (
+                <CoverageDisplay
+                  insurance={patient.insurance}
+                  drugName={selectedDrug?.name}
+                  selectedDose={selectedDose}
+                  selectedPatient={patient}
+                  drugCoverage={drugCoverage}
+                  indication={selectedIndication}
+                />
+              )}
               {/* PA Button logic: only show after dose is selected and PA is required */}
               {selectedDose && coverage && coverage.paRequired && !therapySubmitted && !paFormOpen && !paFormSubmitted && (
                 <button
@@ -272,7 +283,8 @@ export default function TherapyModal({
   paFormSubmitted,
   setPaFormSubmitted,
   paFormData,
-  setPaFormData
+  setPaFormData,
+  useEnhancedMode = false
 }) {
   // Get patient from parent component props (passed down from App)
   const patient = window.__selectedPatient || null;
@@ -358,6 +370,7 @@ export default function TherapyModal({
       selectedDrug={selectedDrug}
       coverage={coverage}
       coverageError={coverageError}
+      useEnhancedMode={useEnhancedMode}
     />
   );
 }
